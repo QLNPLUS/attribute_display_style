@@ -94,9 +94,9 @@ public final class DisplayConfig {
 
     public ResourceLocation iconFontId() {
         try {
-            return new ResourceLocation(iconFont);
+            return ResourceLocation.parse(iconFont);
         } catch (Exception ignored) {
-            return new ResourceLocation("minecraft", "default");
+            return ResourceLocation.parse("minecraft:default");
         }
     }
 }
