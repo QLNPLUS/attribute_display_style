@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -92,11 +92,11 @@ public final class DisplayConfig {
         return json.has(key) ? json.get(key).getAsBoolean() : fallback;
     }
 
-    public ResourceLocation iconFontId() {
+    public Identifier iconFontId() {
         try {
-            return new ResourceLocation(iconFont);
+            return Identifier.parse(iconFont);
         } catch (Exception ignored) {
-            return new ResourceLocation("minecraft", "default");
+            return Identifier.parse("minecraft:default");
         }
     }
 }

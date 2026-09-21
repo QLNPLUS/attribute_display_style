@@ -2,13 +2,13 @@ package local.attributedisplaystyle.client;
 
 import local.attributedisplaystyle.config.DisplayConfig;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
+import net.minecraft.network.chat.FontDescription;
 import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -18,9 +18,9 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.AddAttributeTooltipsEvent;
-import net.neoforged.neoforge.client.event.GatherSkippedAttributeTooltipsEvent;
-import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
+import net.neoforged.neoforge.client.event.AddClientReloadListenersEvent;
+import net.neoforged.neoforge.event.AddAttributeTooltipsEvent;
+import net.neoforged.neoforge.event.GatherSkippedAttributeTooltipsEvent;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -38,7 +38,7 @@ public final class AttributeTooltipHandler {
 
     public static final class ModBusEvents {
         @SubscribeEvent
-        public static void reload(RegisterClientReloadListenersEvent event) {
+        public static void reload(AddClientReloadListenersEvent event) {
             DisplayConfig.load();
         }
     }
@@ -46,8 +46,7 @@ public final class AttributeTooltipHandler {
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void skipVanillaTooltips(GatherSkippedAttributeTooltipsEvent event) {
         DisplayConfig config = DisplayConfig.get();
-        ItemAttributeModifiers modifiers = event.getStack().getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
-        if (config.replaceVanillaAttributeTooltips && modifiers.showInTooltip()) {
+        if (config.replaceVanillaAttributeTooltips) {
             event.setSkipAll(true);
         }
     }
@@ -70,7 +69,7 @@ public final class AttributeTooltipHandler {
 
     private static void addGroup(ItemStack stack, TooltipFlag flag, List<Component> output, EquipmentSlotGroup group) {
         Map<Holder<Attribute>, EnumMap<Operation, List<AttributeModifier>>> grouped = new LinkedHashMap<>();
-        stack.forEachModifier(group, (attribute, modifier) -> grouped.computeIfAbsent(attribute, ignored -> new EnumMap<>(Operation.class))
+        stack.forEachModifier(group, (attribute, modifier, display) -> grouped.computeIfAbsent(attribute, ignored -> new EnumMap<>(Operation.class))
             .computeIfAbsent(modifier.operation(), ignored -> new ArrayList<>())
             .add(modifier));
 
@@ -95,7 +94,7 @@ public final class AttributeTooltipHandler {
         double total = modifiers.stream().mapToDouble(AttributeModifier::amount).sum();
         if (merged) {
             output.add(formatModifier(attribute, operation, total, flag, config.defaultIcon, config.mergedColor));
-            if (config.expandOnShift && Screen.hasShiftDown()) {
+            if (config.expandOnShift && flag.hasShiftDown()) {
                 for (AttributeModifier modifier : modifiers) {
                     output.add(Component.literal(config.nestedPrefix).withStyle(style(config.nestedColor))
                         .append(formatModifier(attribute, operation, modifier.amount(), flag, iconFor(modifier.amount()), config.nestedColor)));
@@ -126,7 +125,7 @@ public final class AttributeTooltipHandler {
         String sign = positive ? "+" : "-";
         String suffix = addition ? "" : "%";
         Style textStyle = style(color);
-        MutableComponent line = Component.literal(icon).withStyle(textStyle.withFont(DisplayConfig.get().iconFontId()))
+        MutableComponent line = Component.literal(icon).withStyle(textStyle.withFont(new FontDescription.Resource(DisplayConfig.get().iconFontId())))
             .append(Component.literal(" " + sign + value + suffix + " ").withStyle(textStyle))
             .append(Component.translatable(attribute.value().getDescriptionId()).withStyle(textStyle));
         if (flag.isAdvanced()) line.append(Component.literal(" [" + operation.name() + "]").withStyle(ChatFormatting.GRAY));
