@@ -1,6 +1,6 @@
 {
   "required": true,
-  "package": "${mod_group_id}.${mod_id}.mixin",
+  "package": "${mod_group_id}.mixin",
   "compatibilityLevel": "JAVA_${java_version}",
   "refmap": "attribute_display_style.refmap.json",
   "mixins": [
@@ -8,4 +8,3 @@
   ],
   "minVersion": "0.8"
 }
-
