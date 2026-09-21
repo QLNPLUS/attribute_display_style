@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "${mod_group_id}.${mod_id}.mixin",
+  "compatibilityLevel": "JAVA_${java_version}",
+  "refmap": "attribute_display_style.refmap.json",
+  "mixins": [
+    "ItemStackMixin"
+  ],
+  "minVersion": "0.8"
+}
+
