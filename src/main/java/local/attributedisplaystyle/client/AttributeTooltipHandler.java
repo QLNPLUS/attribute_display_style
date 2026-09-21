@@ -119,18 +119,24 @@ public final class AttributeTooltipHandler {
     }
 
     private static MutableComponent formatModifier(Holder<Attribute> attribute, Operation operation, double amount, TooltipFlag flag, String icon, int color) {
+        DisplayConfig config = DisplayConfig.get();
         boolean positive = amount >= 0;
         boolean addition = operation.name().equals("ADDITION") || operation.name().equals("ADD_VALUE");
-        double visible = addition ? Math.abs(amount) : Math.abs(amount) * 100D;
+        boolean additionAsPercentage = addition && config.isAdditionAsPercentage(attributeId(attribute));
+        double visible = addition && !additionAsPercentage ? Math.abs(amount) : Math.abs(amount) * 100D;
         String value = NUMBER.format(visible);
         String sign = positive ? "+" : "-";
-        String suffix = addition ? "" : "%";
+        String suffix = addition && !additionAsPercentage ? "" : "%";
         Style textStyle = style(color);
-        MutableComponent line = Component.literal(icon).withStyle(textStyle.withFont(DisplayConfig.get().iconFontId()))
+        MutableComponent line = Component.literal(icon).withStyle(textStyle.withFont(config.iconFontId()))
             .append(Component.literal(" " + sign + value + suffix + " ").withStyle(textStyle))
             .append(Component.translatable(attribute.value().getDescriptionId()).withStyle(textStyle));
         if (flag.isAdvanced()) line.append(Component.literal(" [" + operation.name() + "]").withStyle(ChatFormatting.GRAY));
         return line;
+    }
+
+    private static String attributeId(Holder<Attribute> attribute) {
+        return attribute.unwrapKey().map(key -> key.location().toString()).orElse(null);
     }
 
     private static Style style(int color) {
