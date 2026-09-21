@@ -15,10 +15,10 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStack.TooltipPart;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
-import net.minecraftforge.event.entity.player.ItemTooltipEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
+import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -36,9 +36,11 @@ public final class AttributeTooltipHandler {
         DisplayConfig.load();
     }
 
-    @SubscribeEvent
-    public static void reload(RegisterClientReloadListenersEvent event) {
-        DisplayConfig.load();
+    public static final class ModBusEvents {
+        @SubscribeEvent
+        public static void reload(RegisterClientReloadListenersEvent event) {
+            DisplayConfig.load();
+        }
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
