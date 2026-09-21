@@ -9,6 +9,9 @@ import net.minecraft.resources.ResourceLocation;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 public final class DisplayConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -26,6 +29,7 @@ public final class DisplayConfig {
     public String defaultIcon = "▮▮▮";
     public String nestedPrefix = "└ ";
     public String iconFont = "minecraft:default";
+    public List<String> additionAsPercentageAttributes = new ArrayList<>();
     public boolean showUnchangedModifiers = false;
     public boolean expandOnShift = true;
     public boolean replaceVanillaAttributeTooltips = true;
@@ -66,6 +70,7 @@ public final class DisplayConfig {
         value.defaultIcon = text(json, "default_icon", value.defaultIcon);
         value.nestedPrefix = text(json, "nested_prefix", value.nestedPrefix);
         value.iconFont = text(json, "icon_font", value.iconFont);
+        value.additionAsPercentageAttributes = strings(json, "addition_as_percentage_attributes");
         value.showUnchangedModifiers = bool(json, "show_unchanged_modifiers", value.showUnchangedModifiers);
         value.expandOnShift = bool(json, "expand_on_shift", value.expandOnShift);
         value.replaceVanillaAttributeTooltips = bool(json, "replace_vanilla_attribute_tooltips", value.replaceVanillaAttributeTooltips);
@@ -92,6 +97,25 @@ public final class DisplayConfig {
         return json.has(key) ? json.get(key).getAsBoolean() : fallback;
     }
 
+    private static List<String> strings(JsonObject json, String key) {
+        List<String> values = new ArrayList<>();
+        if (!json.has(key) || !json.get(key).isJsonArray()) return values;
+        json.getAsJsonArray(key).forEach(element -> {
+            if (element.isJsonPrimitive() && element.getAsJsonPrimitive().isString()) {
+                values.add(element.getAsString());
+            }
+        });
+        return values;
+    }
+
+    public boolean isAdditionAsPercentage(String attributeId) {
+        if (attributeId == null) return false;
+        String normalized = attributeId.trim().toLowerCase(Locale.ROOT);
+        return additionAsPercentageAttributes.stream()
+            .map(value -> value == null ? "" : value.trim().toLowerCase(Locale.ROOT))
+            .anyMatch(normalized::equals);
+    }
+
     public ResourceLocation iconFontId() {
         try {
             return new ResourceLocation(iconFont);
@@ -100,4 +124,3 @@ public final class DisplayConfig {
         }
     }
 }
-
