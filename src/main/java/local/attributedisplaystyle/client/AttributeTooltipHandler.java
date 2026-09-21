@@ -19,6 +19,7 @@ import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -142,21 +143,30 @@ public final class AttributeTooltipHandler {
     }
 
     private static MutableComponent formatModifier(Attribute attribute, Operation operation, double amount, TooltipFlag flag, String icon, int color) {
+        DisplayConfig config = DisplayConfig.get();
         boolean positive = amount >= 0;
-        double visible = operation == Operation.ADDITION ? Math.abs(amount) : Math.abs(amount) * 100D;
+        boolean additionAsPercentage = operation == Operation.ADDITION
+            && config.isAdditionAsPercentage(attributeId(attribute));
+        double visible = operation == Operation.ADDITION && !additionAsPercentage
+            ? Math.abs(amount)
+            : Math.abs(amount) * 100D;
         String value = NUMBER.format(visible);
         String sign = positive ? "+" : "-";
-        String suffix = operation == Operation.ADDITION ? "" : "%";
+        String suffix = operation == Operation.ADDITION && !additionAsPercentage ? "" : "%";
         Style textStyle = style(color);
-        MutableComponent line = Component.literal(icon).withStyle(textStyle.withFont(DisplayConfig.get().iconFontId()))
+        MutableComponent line = Component.literal(icon).withStyle(textStyle.withFont(config.iconFontId()))
             .append(Component.literal(" " + sign + value + suffix + " ").withStyle(textStyle))
             .append(Component.translatable(attribute.getDescriptionId()).withStyle(textStyle));
         if (flag.isAdvanced()) line.append(Component.literal(" [" + operation.name() + "]").withStyle(ChatFormatting.GRAY));
         return line;
     }
 
+    private static String attributeId(Attribute attribute) {
+        net.minecraft.resources.ResourceLocation key = ForgeRegistries.ATTRIBUTES.getKey(attribute);
+        return key == null ? null : key.toString();
+    }
+
     private static Style style(int color) {
         return Style.EMPTY.withColor(TextColor.fromRgb(color));
     }
 }
-
