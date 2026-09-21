@@ -9,4 +9,6 @@ crash-reports/
 *.iml
 .idea/
 .vscode/
-
+/neoforge-1.20.4/
+/neoforge-1.21.1/
+/neoforge-26.1.2/
