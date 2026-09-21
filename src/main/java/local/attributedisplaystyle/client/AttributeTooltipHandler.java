@@ -4,6 +4,7 @@ import com.google.common.collect.Multimap;
 import local.attributedisplaystyle.config.DisplayConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
@@ -144,17 +145,27 @@ public final class AttributeTooltipHandler {
     }
 
     private static MutableComponent formatModifier(Attribute attribute, Operation operation, double amount, TooltipFlag flag, String icon, int color) {
+        DisplayConfig config = DisplayConfig.get();
         boolean positive = amount >= 0;
-        double visible = operation == Operation.ADDITION ? Math.abs(amount) : Math.abs(amount) * 100D;
+        boolean additionAsPercentage = operation == Operation.ADDITION
+            && config.isAdditionAsPercentage(attributeId(attribute));
+        double visible = operation == Operation.ADDITION && !additionAsPercentage
+            ? Math.abs(amount)
+            : Math.abs(amount) * 100D;
         String value = NUMBER.format(visible);
         String sign = positive ? "+" : "-";
-        String suffix = operation == Operation.ADDITION ? "" : "%";
+        String suffix = operation == Operation.ADDITION && !additionAsPercentage ? "" : "%";
         Style textStyle = style(color);
-        MutableComponent line = Component.literal(icon).withStyle(textStyle.withFont(DisplayConfig.get().iconFontId()))
+        MutableComponent line = Component.literal(icon).withStyle(textStyle.withFont(config.iconFontId()))
             .append(Component.literal(" " + sign + value + suffix + " ").withStyle(textStyle))
             .append(Component.translatable(attribute.getDescriptionId()).withStyle(textStyle));
         if (flag.isAdvanced()) line.append(Component.literal(" [" + operation.name() + "]").withStyle(ChatFormatting.GRAY));
         return line;
+    }
+
+    private static String attributeId(Attribute attribute) {
+        net.minecraft.resources.ResourceLocation key = BuiltInRegistries.ATTRIBUTE.getKey(attribute);
+        return key == null ? null : key.toString();
     }
 
     private static Style style(int color) {
