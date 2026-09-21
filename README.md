@@ -12,10 +12,19 @@ Features:
 
 The client config is stored at config/attribute_display_style.json. The three icon fields accept text directly. To use a PNG, set an icon to a private-use glyph and set its font to a font provider that maps that glyph to your PNG.
 
+The generated config exposes these display controls:
+
+- positive_color, negative_color, merged_color, default_color, header_color, nested_color: six-digit RGB values such as #55FF55.
+- positive_icon, negative_icon, default_icon: text, Unicode symbols, or private-use glyphs.
+- icon_font: the font resource location used for the icon glyphs.
+- nested_prefix: the prefix shown before expanded modifier lines.
+- show_unchanged_modifiers, expand_on_shift, replace_vanilla_attribute_tooltips: behavior switches.
+
+The default_icon is used for the merged line before Shift expansion. Expanded child lines use the positive or negative icon according to their value.
+
 Supported branches:
 
 - forge-1.20.1
 - neoforge-1.20.4
 - neoforge-1.21.1
 - neoforge-26.1.2
-
