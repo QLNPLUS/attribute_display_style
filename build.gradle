@@ -15,6 +15,10 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(java_version)
 
+minecraft {
+    accessTransformers.file file('src/main/resources/META-INF/accesstransformer.cfg')
+}
+
 runs {
     configureEach {
         systemProperty 'forge.logging.markers', 'REGISTRIES'
@@ -66,10 +70,6 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('processResources') {
     dependsOn tasks.named('compileJava')
-    from(file("${buildDir}/${mod_id}.refmap.json"))
-}
-
-tasks.named('jar', Jar).configure {
     from(file("${buildDir}/${mod_id}.refmap.json"))
 }
 
