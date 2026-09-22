@@ -129,7 +129,7 @@ public final class AttributeTooltipHandler {
         String suffix = addition && !additionAsPercentage ? "" : "%";
         Style textStyle = style(color);
         MutableComponent line = Component.literal(icon).withStyle(textStyle.withFont(config.iconFontId()))
-            .append(Component.literal(" " + sign + value + suffix + " ").withStyle(textStyle))
+            .append(Component.literal(" " + sign + " " + value + suffix + " ").withStyle(textStyle))
             .append(Component.translatable(attribute.value().getDescriptionId()).withStyle(textStyle));
         if (flag.isAdvanced()) line.append(Component.literal(" [" + operation.name() + "]").withStyle(ChatFormatting.GRAY));
         return line;
