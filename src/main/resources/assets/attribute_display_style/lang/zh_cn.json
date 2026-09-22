@@ -1,4 +1,4 @@
 {
-  "attribute_display_style.config.created": "属性显示样式配置已创建：%s"
+  "attribute_display_style.config.created": "属性显示样式配置已创建：%s",
+  "attribute_display_style.command.reload.success": "属性显示样式配置已重新加载。"
 }
-
