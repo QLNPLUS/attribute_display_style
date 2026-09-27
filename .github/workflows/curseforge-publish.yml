@@ -57,6 +57,7 @@ jobs:
           esac
 
           version="${RELEASE_TAG#v}"
+          version="${version%-${suffix}}"
           expected_tag="v${version}-${suffix}"
           if [[ "$RELEASE_TAG" != "$expected_tag" || ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Invalid release tag: $RELEASE_TAG" >&2
