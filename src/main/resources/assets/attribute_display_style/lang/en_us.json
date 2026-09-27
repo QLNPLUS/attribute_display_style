@@ -1,4 +1,5 @@
 {
+  "item.modifiers.both_hands": "When in either hand:",
   "attribute_display_style.config.created": "Attribute Display Style config created at %s",
   "attribute_display_style.command.reload.success": "Attribute Display Style config reloaded."
 }

@@ -1,6 +1,7 @@
 package local.attributedisplaystyle.client;
 
 import com.google.common.collect.Multimap;
+import com.google.common.collect.ArrayListMultimap;
 import com.mojang.datafixers.util.Either;
 import local.attributedisplaystyle.config.DisplayConfig;
 import net.minecraft.ChatFormatting;
@@ -31,6 +32,7 @@ import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
 import net.minecraftforge.client.event.RenderTooltipEvent;
+import net.minecraftforge.common.ForgeMod;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -53,12 +55,14 @@ public final class AttributeTooltipHandler {
     private static final DecimalFormat NUMBER = new DecimalFormat("#.##");
     /** What this mod rendered for a tooltip: the attributes it covers and the block it inserted. */
     private record RenderedSection(Set<String> covered, Component first, Component last) {}
+    private record ModifierKey(Attribute attribute, UUID id) {}
 
     private static final Map<List<Component>, RenderedSection> RENDERED_GROUPS = new IdentityHashMap<>();
     private static int debugDumps = 0;
     // Item.BASE_ATTACK_*_UUID is protected in 1.20.1, so the vanilla values are repeated here.
     private static final UUID ATTACK_DAMAGE_MODIFIER = UUID.fromString("CB3F55D3-645C-4F38-A497-9C13A33DB5CF");
     private static final UUID ATTACK_SPEED_MODIFIER = UUID.fromString("FA233E1C-4180-4865-B01B-BCCE9785ACA3");
+    private static final UUID ENTITY_REACH_MODIFIER = UUID.fromString("89689AA7-C577-4D97-A03E-791FDE1798D4");
 
     public AttributeTooltipHandler() {
         DisplayConfig.load();
@@ -365,40 +369,96 @@ public final class AttributeTooltipHandler {
 
     private static void addModifiers(ItemStack stack, Player player, TooltipFlag flag, List<TooltipCompat.Entry> foreign, List<Component> output, Set<String> rendered) {
         List<TooltipCompat.Entry> pending = new ArrayList<>(foreign);
-        addGroup(stack, player, flag, pending, output, rendered, EquipmentSlot.MAINHAND, "mainhand");
-        addGroup(stack, player, flag, pending, output, rendered, EquipmentSlot.OFFHAND, "offhand");
-        addGroup(stack, player, flag, pending, output, rendered, EquipmentSlot.HEAD, "head");
-        addGroup(stack, player, flag, pending, output, rendered, EquipmentSlot.CHEST, "chest");
-        addGroup(stack, player, flag, pending, output, rendered, EquipmentSlot.LEGS, "legs");
-        addGroup(stack, player, flag, pending, output, rendered, EquipmentSlot.FEET, "feet");
+        Multimap<Attribute, AttributeModifier> mainhand = stack.getAttributeModifiers(EquipmentSlot.MAINHAND);
+        Multimap<Attribute, AttributeModifier> offhand = stack.getAttributeModifiers(EquipmentSlot.OFFHAND);
+        Set<ModifierKey> sharedHands = new HashSet<>();
+        Multimap<Attribute, AttributeModifier> bothHands = ArrayListMultimap.create();
+
+        // Apothic first groups same-attribute modifiers shared by both hands, keyed by modifier UUID.
+        for (Map.Entry<Attribute, AttributeModifier> entry : mainhand.entries()) {
+            Attribute attribute = entry.getKey();
+            AttributeModifier modifier = entry.getValue();
+            if (hasModifierId(offhand.get(attribute), modifier.getId())) {
+                bothHands.put(attribute, modifier);
+                sharedHands.add(new ModifierKey(attribute, modifier.getId()));
+            }
+        }
+
+        addGroup(stack, bothHands, player, flag, pending, output, rendered, "both_hands");
+        addGroup(stack, withoutModifiers(mainhand, sharedHands), player, flag, pending, output, rendered, "mainhand");
+        addGroup(stack, withoutModifiers(offhand, sharedHands), player, flag, pending, output, rendered, "offhand");
+        addGroup(stack, stack.getAttributeModifiers(EquipmentSlot.HEAD), player, flag, pending, output, rendered, "head");
+        addGroup(stack, stack.getAttributeModifiers(EquipmentSlot.CHEST), player, flag, pending, output, rendered, "chest");
+        addGroup(stack, stack.getAttributeModifiers(EquipmentSlot.LEGS), player, flag, pending, output, rendered, "legs");
+        addGroup(stack, stack.getAttributeModifiers(EquipmentSlot.FEET), player, flag, pending, output, rendered, "feet");
         // Attributes only the other mod knows about have no modifier to join, so they keep their own lines.
         TooltipCompat.renderEntries(pending, output, flag);
     }
 
-    private static void addGroup(ItemStack stack, Player player, TooltipFlag flag, List<TooltipCompat.Entry> pending, List<Component> output, Set<String> rendered, EquipmentSlot slot, String groupName) {
-        Multimap<Attribute, AttributeModifier> source = stack.getAttributeModifiers(slot);
+    private static boolean hasModifierId(Iterable<AttributeModifier> modifiers, UUID id) {
+        for (AttributeModifier modifier : modifiers) {
+            if (id.equals(modifier.getId())) return true;
+        }
+        return false;
+    }
+
+    private static Multimap<Attribute, AttributeModifier> withoutModifiers(Multimap<Attribute, AttributeModifier> source, Set<ModifierKey> excluded) {
+        Multimap<Attribute, AttributeModifier> remaining = ArrayListMultimap.create();
+        for (Map.Entry<Attribute, AttributeModifier> entry : source.entries()) {
+            if (!excluded.contains(new ModifierKey(entry.getKey(), entry.getValue().getId()))) {
+                remaining.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return remaining;
+    }
+
+    private static void addGroup(ItemStack stack, Multimap<Attribute, AttributeModifier> source, Player player, TooltipFlag flag, List<TooltipCompat.Entry> pending, List<Component> output, Set<String> rendered, String groupName) {
         if (source.isEmpty()) return;
 
-        Map<Attribute, EnumMap<Operation, List<AttributeModifier>>> grouped = new LinkedHashMap<>();
+        Map<Attribute, List<AttributeModifier>> grouped = new LinkedHashMap<>();
         for (Map.Entry<Attribute, AttributeModifier> entry : source.entries()) {
-            grouped.computeIfAbsent(entry.getKey(), ignored -> new EnumMap<>(Operation.class))
-                .computeIfAbsent(entry.getValue().getOperation(), ignored -> new ArrayList<>())
-                .add(entry.getValue());
+            grouped.computeIfAbsent(entry.getKey(), ignored -> new ArrayList<>()).add(entry.getValue());
         }
 
         List<Component> lines = new ArrayList<>();
         List<Attribute> order = new ArrayList<>(grouped.keySet());
         order.sort(java.util.Comparator.comparingInt(AttributeTooltipHandler::order));
         for (Attribute attribute : order) {
-            for (Map.Entry<Operation, List<AttributeModifier>> operation : grouped.get(attribute).entrySet()) {
-                List<AttributeModifier> modifiers = operation.getValue();
-                if (!DisplayConfig.get().showUnchangedModifiers) modifiers.removeIf(modifier -> modifier.getAmount() == 0);
-                if (modifiers.isEmpty()) continue;
-                boolean percentage = percentageFor(attribute, operation.getKey());
+            List<AttributeModifier> modifiers = grouped.get(attribute);
+            UUID baseId = baseModifierId(attribute);
+            AttributeModifier baseModifier = null;
+            if (baseId != null) {
+                // Match Apothic's base-modifier lookup: the last matching modifier is the anchor.
+                for (AttributeModifier modifier : modifiers) {
+                    if (baseId.equals(modifier.getId())) baseModifier = modifier;
+                }
+            }
+
+            if (baseModifier != null) {
+                List<AttributeModifier> children = new ArrayList<>();
+                for (AttributeModifier modifier : modifiers) {
+                    if (modifier != baseModifier
+                        && (DisplayConfig.get().showUnchangedModifiers || modifier.getAmount() != 0D)) {
+                        children.add(modifier);
+                    }
+                }
                 rendered.add(attribute.getDescriptionId());
-                // The other mod rendered this very attribute itself, so its line is a duplicate.
                 dropMatching(pending, attribute.getDescriptionId());
-                addOperationLines(attribute, operation.getKey(), modifiers, stack, player, flag, lines);
+                addBaseValueLines(attribute, baseModifier, children, player, stack, flag, lines);
+                continue;
+            }
+
+            EnumMap<Operation, List<AttributeModifier>> byOperation = new EnumMap<>(Operation.class);
+            for (AttributeModifier modifier : modifiers) {
+                if (!DisplayConfig.get().showUnchangedModifiers && modifier.getAmount() == 0D) continue;
+                byOperation.computeIfAbsent(modifier.getOperation(), ignored -> new ArrayList<>()).add(modifier);
+            }
+            if (byOperation.isEmpty()) continue;
+            rendered.add(attribute.getDescriptionId());
+            // The other mod rendered this very attribute itself, so its line is a duplicate.
+            dropMatching(pending, attribute.getDescriptionId());
+            for (Map.Entry<Operation, List<AttributeModifier>> operation : byOperation.entrySet()) {
+                addOperationLines(attribute, operation.getKey(), operation.getValue(), flag, lines);
             }
         }
         if (lines.isEmpty()) return;
@@ -419,39 +479,63 @@ public final class AttributeTooltipHandler {
         pending.removeIf(entry -> !entry.equalsLine() && entry.nameKey().equals(descriptionId));
     }
 
-    static void addOperationLines(Attribute attribute, Operation operation, List<AttributeModifier> modifiers, ItemStack stack, Player player, TooltipFlag flag, List<Component> output) {
+    private static UUID baseModifierId(Attribute attribute) {
+        if (attribute == Attributes.ATTACK_DAMAGE) return ATTACK_DAMAGE_MODIFIER;
+        if (attribute == Attributes.ATTACK_SPEED) return ATTACK_SPEED_MODIFIER;
+        if (attribute == ForgeMod.ENTITY_REACH.get()) return ENTITY_REACH_MODIFIER;
+        return null;
+    }
+
+    private static void addBaseValueLines(Attribute attribute, AttributeModifier baseModifier, List<AttributeModifier> children, Player player, ItemStack stack, TooltipFlag flag, List<Component> output) {
         DisplayConfig config = DisplayConfig.get();
+        double entityBase = player == null ? 0D : player.getAttributeBaseValue(attribute);
+        double weaponBase = entityBase + baseModifier.getAmount();
+        double additiveBase = weaponBase;
+        double total = weaponBase;
 
-        // Vanilla shows the total a weapon reaches with the player's own base value for attack damage
-        // and attack speed instead of the raw modifier, so those modifiers are rendered as totals.
-        List<AttributeModifier> totals = new ArrayList<>();
-        List<AttributeModifier> regular = new ArrayList<>();
-        for (AttributeModifier modifier : modifiers) {
-            if (player != null && isTotalModifier(modifier)) totals.add(modifier);
-            else regular.add(modifier);
+        // Apply the child modifiers in the same operation phases used by AttributesLib.
+        for (AttributeModifier modifier : children) {
+            if (modifier.getOperation() == Operation.ADDITION) {
+                additiveBase += modifier.getAmount();
+                total += modifier.getAmount();
+            }
+        }
+        for (AttributeModifier modifier : children) {
+            if (modifier.getOperation() == Operation.MULTIPLY_BASE) {
+                total += modifier.getAmount() * additiveBase;
+            }
+        }
+        for (AttributeModifier modifier : children) {
+            if (modifier.getOperation() == Operation.MULTIPLY_TOTAL) {
+                total *= 1D + modifier.getAmount();
+            }
         }
 
-        // Every additive modifier of that attribute belongs to the total, so a weapon shows one line
-        // instead of the weapon value plus one line per bonus.
-        double additive = 0D;
-        if (!totals.isEmpty() && operation == Operation.ADDITION) {
-            for (AttributeModifier modifier : regular) additive += modifier.getAmount();
-            regular.clear();
+        double bonus = attribute == Attributes.ATTACK_DAMAGE
+            ? EnchantmentHelper.getDamageBonus(stack, MobType.UNDEFINED)
+            : 0D;
+        total += bonus;
+        Component name = Component.translatable(attribute.getDescriptionId());
+        output.add(formatLine(Operation.ADDITION, total, false, name, flag, singleStyle(total)));
+
+        if (!config.expandOnShift || !Screen.hasShiftDown() || (children.isEmpty() && bonus == 0D)) return;
+        addNestedSource(attribute, Operation.ADDITION, false, weaponBase, flag, output);
+        for (AttributeModifier modifier : children) {
+            boolean percentage = percentageFor(attribute, modifier.getOperation());
+            addNestedSource(attribute, modifier.getOperation(), percentage, modifier.getAmount(), flag, output);
         }
+        if (bonus != 0D) addNestedSource(attribute, Operation.ADDITION, false, bonus, flag, output);
+    }
 
-        for (AttributeModifier modifier : totals) {
-            addTotalLines(attribute, operation, modifier, additive, stack, player, flag, output);
-        }
-
-        if (regular.isEmpty()) return;
-
-        double total = regular.stream().mapToDouble(AttributeModifier::getAmount).sum();
+    static void addOperationLines(Attribute attribute, Operation operation, List<AttributeModifier> modifiers, TooltipFlag flag, List<Component> output) {
+        DisplayConfig config = DisplayConfig.get();
+        double total = modifiers.stream().mapToDouble(AttributeModifier::getAmount).sum();
         boolean percentage = percentageFor(attribute, operation);
         Component name = Component.translatable(attribute.getDescriptionId());
-        if (regular.size() > 1) {
+        if (modifiers.size() > 1) {
             output.add(formatLine(operation, scaled(total, percentage), percentage, name, flag, mergedStyle(total)));
             if (config.expandOnShift && Screen.hasShiftDown()) {
-                for (AttributeModifier modifier : regular) {
+                for (AttributeModifier modifier : modifiers) {
                     output.add(formatLine(operation, scaled(modifier.getAmount(), percentage), percentage, name, flag,
                         expandedStyle(modifier.getAmount())));
                 }
@@ -459,7 +543,7 @@ public final class AttributeTooltipHandler {
             return;
         }
 
-        double amount = regular.get(0).getAmount();
+        double amount = modifiers.get(0).getAmount();
         output.add(formatLine(operation, scaled(amount, percentage), percentage, name, flag, singleStyle(amount)));
     }
 
@@ -482,34 +566,6 @@ public final class AttributeTooltipHandler {
         return amount >= 0 ? DisplayConfig.get().positiveExpanded : DisplayConfig.get().negativeExpanded;
     }
 
-    private static boolean isTotalModifier(AttributeModifier modifier) {
-        return ATTACK_DAMAGE_MODIFIER.equals(modifier.getId())
-            || ATTACK_SPEED_MODIFIER.equals(modifier.getId());
-    }
-
-    /**
-     * Renders a weapon total the way vanilla does - the player's own base value plus the modifier,
-     * plus the enchantment damage bonus for attack damage - and, while Shift is held, expands it
-     * into the parts that add up to that total.
-     */
-    private static void addTotalLines(Attribute attribute, Operation operation, AttributeModifier modifier, double extra, ItemStack stack, Player player, TooltipFlag flag, List<Component> output) {
-        DisplayConfig config = DisplayConfig.get();
-        boolean percentage = operation != Operation.ADDITION;
-        double base = baseAmount(modifier, player);
-        double enchantment = enchantmentAmount(modifier, stack);
-        double own = base + modifier.getAmount();
-        double total = own + enchantment + extra;
-        output.add(formatLine(operation, scaled(total, percentage), percentage,
-            Component.translatable(attribute.getDescriptionId()), flag, singleStyle(total)));
-        if (!config.expandOnShift || !Screen.hasShiftDown()) return;
-        if (enchantment == 0D && extra == 0D) return;
-
-        // The weapon's own value, the enchantment bonus and the extra bonuses stay separate lines.
-        addNestedSource(attribute, operation, percentage, own, flag, output);
-        if (enchantment != 0D) addNestedSource(attribute, operation, percentage, enchantment, flag, output);
-        if (extra != 0D) addNestedSource(attribute, operation, percentage, extra, flag, output);
-    }
-
     static void addNestedSource(Attribute attribute, Operation operation, boolean percentage, double amount, TooltipFlag flag, List<Component> output) {
         output.add(formatLine(operation, scaled(amount, percentage), percentage,
             Component.translatable(attribute.getDescriptionId()), flag, expandedStyle(amount)));
@@ -517,17 +573,6 @@ public final class AttributeTooltipHandler {
 
     private static double scaled(double amount, boolean percentage) {
         return percentage ? amount * 100D : amount;
-    }
-
-    private static double baseAmount(AttributeModifier modifier, Player player) {
-        if (ATTACK_DAMAGE_MODIFIER.equals(modifier.getId())) return player.getAttributeBaseValue(Attributes.ATTACK_DAMAGE);
-        if (ATTACK_SPEED_MODIFIER.equals(modifier.getId())) return player.getAttributeBaseValue(Attributes.ATTACK_SPEED);
-        return 0D;
-    }
-
-    private static double enchantmentAmount(AttributeModifier modifier, ItemStack stack) {
-        if (ATTACK_DAMAGE_MODIFIER.equals(modifier.getId())) return EnchantmentHelper.getDamageBonus(stack, MobType.UNDEFINED);
-        return 0D;
     }
 
     static MutableComponent formatLine(Operation operation, double amount, boolean percentage, Component name, TooltipFlag flag, DisplayConfig.Style appearance) {

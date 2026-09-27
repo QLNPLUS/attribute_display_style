@@ -57,7 +57,7 @@ public final class DisplayConfig {
         }
     }
 
-    public String iconFont = "minecraft:default";
+    public String iconFont = "attribute_display_style:icons";
     public int headerColor = 0xAAAAAA;
     public List<String> additionAsPercentageAttributes = new ArrayList<>();
     public boolean showUnchangedModifiers = false;
@@ -65,12 +65,12 @@ public final class DisplayConfig {
     public boolean replaceVanillaAttributeTooltips = true;
     public boolean styleOtherModAttributeTooltips = true;
 
-    public Style positiveSingle = new Style("", "▲", POSITIVE);
-    public Style negativeSingle = new Style("", "▼", NEGATIVE);
-    public Style positiveMerged = new Style("", "▮▮▮", POSITIVE_MERGED);
-    public Style negativeMerged = new Style("", "▮▮▮", NEGATIVE_MERGED);
-    public Style positiveExpanded = new Style(EXPANDED_PREFIX, "▲", EXPANDED);
-    public Style negativeExpanded = new Style(EXPANDED_PREFIX, "▼", EXPANDED);
+    public Style positiveSingle = new Style("", "\uDB80\uDC15", 0x55FF55, 0xFFFFFF, 0x777777, 0xFFFFFF, 0x777777);
+    public Style negativeSingle = new Style("", "\uDB80\uDC15", 0xFF5555, 0xFFFFFF, 0x777777, 0xFF5555, 0x777777);
+    public Style positiveMerged = new Style("", "\uDB80\uDC15", 0x55FF55, 0xFFFFFF, 0x777777, 0xFFFFFF, 0x777777);
+    public Style negativeMerged = new Style("", "\uDB80\uDC15", 0xF93131, 0xF93131, 0xF93131, 0xF93131, 0xF93131);
+    public Style positiveExpanded = new Style(" ", "\uDB80\uDC13", 0x777777, 0x777777, 0x777777, 0x5555FF, 0x777777);
+    public Style negativeExpanded = new Style(" ", "\uDB80\uDC14", 0x777777, 0x777777, 0x777777, 0xFF5555, 0x777777);
 
     private static DisplayConfig current = new DisplayConfig();
 
@@ -103,7 +103,8 @@ public final class DisplayConfig {
         value.showUnchangedModifiers = bool(json, "show_unchanged_modifiers", value.showUnchangedModifiers);
         value.expandOnShift = bool(json, "expand_on_shift", value.expandOnShift);
         value.replaceVanillaAttributeTooltips = bool(json, "replace_vanilla_attribute_tooltips", value.replaceVanillaAttributeTooltips);
-        value.styleOtherModAttributeTooltips = bool(json, "style_other_mod_attribute_tooltips", value.styleOtherModAttributeTooltips);
+        value.styleOtherModAttributeTooltips = bool(json, "style_curio_attribute_tooltips",
+            bool(json, "style_other_mod_attribute_tooltips", value.styleOtherModAttributeTooltips));
 
         if (json.has("positive_single") || json.has("negative_single")) {
             value.positiveSingle = style(json, "positive_single", value.positiveSingle);
@@ -222,7 +223,7 @@ public final class DisplayConfig {
         json.addProperty("show_unchanged_modifiers", value.showUnchangedModifiers);
         json.addProperty("expand_on_shift", value.expandOnShift);
         json.addProperty("replace_vanilla_attribute_tooltips", value.replaceVanillaAttributeTooltips);
-        json.addProperty("style_other_mod_attribute_tooltips", value.styleOtherModAttributeTooltips);
+        json.addProperty("style_curio_attribute_tooltips", value.styleOtherModAttributeTooltips);
         putStyle(json, "positive_single", value.positiveSingle);
         putStyle(json, "negative_single", value.negativeSingle);
         putStyle(json, "positive_merged", value.positiveMerged);
