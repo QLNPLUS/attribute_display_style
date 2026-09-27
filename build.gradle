@@ -58,9 +58,9 @@ tasks.named('processResources', ProcessResources).configure {
         java_version: java_version
     ]
     inputs.properties replaceProperties
-    filesMatching('META-INF/neoforge.mods.toml') { expand replaceProperties }
+    filesMatching('META-INF/mods.toml') { expand replaceProperties }
     filesMatching('attribute_display_style.mixins.json') { expand replaceProperties }
-    exclude 'META-INF/mods.toml'
+    exclude 'META-INF/neoforge.mods.toml'
 }
 
 tasks.withType(JavaCompile).configureEach {
