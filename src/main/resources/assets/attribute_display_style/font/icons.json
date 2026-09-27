@@ -1,0 +1,25 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "attribute_display_style:gui/up.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": ["\uDB80\uDC13"]
+    },
+    {
+      "type": "bitmap",
+      "file": "attribute_display_style:gui/down.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": ["\uDB80\uDC14"]
+    },
+    {
+      "type": "bitmap",
+      "file": "attribute_display_style:gui/right.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": ["\uDB80\uDC15"]
+    }
+  ]
+}
