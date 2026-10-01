@@ -241,6 +241,19 @@ public final class DisplayConfig {
             .anyMatch(normalized::equals);
     }
 
+    public boolean isAdditionAsPercentage(String attributeId, String descriptionId) {
+        return isAdditionAsPercentage(attributeId)
+            || isAdditionAsPercentage(attributeIdFromDescription(descriptionId));
+    }
+
+    private static String attributeIdFromDescription(String descriptionId) {
+        if (descriptionId == null || !descriptionId.startsWith("attribute.")) return null;
+        String path = descriptionId.substring("attribute.".length());
+        int separator = path.indexOf('.');
+        if (separator <= 0 || separator == path.length() - 1) return null;
+        return path.substring(0, separator) + ':' + path.substring(separator + 1);
+    }
+
     public ResourceLocation iconFontId() {
         try {
             return new ResourceLocation(iconFont);

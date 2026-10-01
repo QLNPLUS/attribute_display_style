@@ -548,7 +548,8 @@ public final class AttributeTooltipHandler {
     }
 
     private static boolean percentageFor(Attribute attribute, Operation operation) {
-        return operation != Operation.ADDITION || DisplayConfig.get().isAdditionAsPercentage(attributeId(attribute));
+        return operation != Operation.ADDITION || DisplayConfig.get().isAdditionAsPercentage(
+            attributeId(attribute), attribute.getDescriptionId());
     }
 
     /** A lone modifier. */
