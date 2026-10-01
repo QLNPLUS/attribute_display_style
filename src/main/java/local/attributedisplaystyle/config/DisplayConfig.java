@@ -246,9 +246,13 @@ public final class DisplayConfig {
             || isAdditionAsPercentage(attributeIdFromDescription(descriptionId));
     }
 
-    private static String attributeIdFromDescription(String descriptionId) {
-        if (descriptionId == null || !descriptionId.startsWith("attribute.")) return null;
-        String path = descriptionId.substring("attribute.".length());
+    public static String attributeIdFromDescription(String descriptionId) {
+        if (descriptionId == null) return null;
+        String prefix = descriptionId.startsWith("attribute.name.")
+            ? "attribute.name."
+            : descriptionId.startsWith("attribute.") ? "attribute." : null;
+        if (prefix == null) return null;
+        String path = descriptionId.substring(prefix.length());
         int separator = path.indexOf('.');
         if (separator <= 0 || separator == path.length() - 1) return null;
         return path.substring(0, separator) + ':' + path.substring(separator + 1);

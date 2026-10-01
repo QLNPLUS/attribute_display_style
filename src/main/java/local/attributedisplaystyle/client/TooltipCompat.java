@@ -364,11 +364,7 @@ final class TooltipCompat {
     }
 
     private static String conventionAttributeId(String descriptionId) {
-        if (!descriptionId.startsWith("attribute.")) return null;
-        String rest = descriptionId.substring("attribute.".length());
-        int separator = rest.indexOf('.');
-        if (separator <= 0 || separator == rest.length() - 1) return null;
-        return rest.substring(0, separator) + ':' + rest.substring(separator + 1);
+        return DisplayConfig.attributeIdFromDescription(descriptionId);
     }
 
     /** One parsed line: {@code amount} is already in display units and signed. */
