@@ -44,8 +44,24 @@ All six objects have the same seven fields:
 - icon_font: the font resource location used for the glyphs. To use a PNG, set an icon to a private-use glyph and point this at a font provider that maps that glyph to your image.
 - header_color: the color of headers such as "When in mainhand:" and the Curios equivalents.
 - addition_as_percentage_attributes: attribute registry IDs whose base addition should display as a percentage, for example examplemod:critical_hit_chance. A value of 0.05 is shown as +5%. This applies to the vanilla equipment sections and to the Curios lists.
+- attribute_display_multipliers: an object mapping attribute registry IDs to positive, finite display multipliers. The multiplier applies to the displayed number after existing percentage conversion, without changing gameplay values; values below 1 are supported. For a non-percentage modifier, a multiplier of 100 turns 0.05 into 5; 0.01 turns a displayed 1000 into 10. If the existing rules format a value as a percentage, the multiplier scales its numeric part and keeps the `%` suffix. Existing `#.##` formatting is retained, so results below about 0.005 may round to 0.
 - show_unchanged_modifiers, expand_on_shift, replace_vanilla_attribute_tooltips: behavior switches.
 - style_other_mod_attribute_tooltips: restyle and merge the attribute lists other mods add, default true. Covers the Curios slot lists and the Confluence item prefixes; set to false to leave them exactly as those mods render them.
+
+Example:
+
+```json
+"attribute_display_multipliers": {
+  "examplemod:flat_stat": 100,
+  "examplemod:large_stat": 0.01
+}
+```
+
+## 中文说明
+
+`attribute_display_multipliers` 是按属性注册 ID 设置的显示倍率，只改变提示中的数字，不影响游戏内实际属性。倍率必须是大于 0 的有限数值，也支持小于 1 的倍率，例如 `0.01`。对于没有按百分比显示的 `0.05`，配置 `100` 后显示为 `5`；倍率 `0.01` 会把 `1000` 缩放为 `10`。若属性本身按百分比显示，倍率会缩放百分号前的数字并保留 `%`。现有 `#.##` 格式不变，因此缩放后小于约 `0.005` 的数值可能会舍入为 `0`。
+
+编辑配置后运行 `/attribute_display_style reload`，或按 F3+T 重新加载。
 
 A config written by an earlier version is migrated automatically: the previous flat color, icon, `*_parts` and nested_prefix keys are folded into the six types the next time the file is read, so nothing is lost.
 

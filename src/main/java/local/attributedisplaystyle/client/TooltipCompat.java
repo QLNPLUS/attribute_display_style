@@ -190,20 +190,21 @@ final class TooltipCompat {
         DisplayConfig config = DisplayConfig.get();
         for (List<Entry> group : groups) {
             Entry first = group.get(0);
+            String registryId = attributeId(first.name());
             if (group.size() == 1) {
                 output.add(AttributeTooltipHandler.formatLine(first.operation(), first.amount(), first.percentage(),
-                    first.name(), flag, AttributeTooltipHandler.singleStyle(first.amount())));
+                    first.name(), registryId, flag, AttributeTooltipHandler.singleStyle(first.amount())));
                 continue;
             }
 
             double total = 0D;
             for (Entry entry : group) total += entry.amount();
-            output.add(AttributeTooltipHandler.formatLine(first.operation(), total, first.percentage(), first.name(), flag,
+            output.add(AttributeTooltipHandler.formatLine(first.operation(), total, first.percentage(), first.name(), registryId, flag,
                 AttributeTooltipHandler.mergedStyle(total)));
             if (config.expandOnShift && Screen.hasShiftDown()) {
                 for (Entry entry : group) {
                     output.add(AttributeTooltipHandler.formatLine(entry.operation(), entry.amount(), entry.percentage(),
-                        entry.name(), flag, AttributeTooltipHandler.expandedStyle(entry.amount())));
+                        entry.name(), registryId, flag, AttributeTooltipHandler.expandedStyle(entry.amount())));
                 }
             }
         }

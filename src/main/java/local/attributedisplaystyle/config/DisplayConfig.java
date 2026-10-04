@@ -3,6 +3,7 @@ package local.attributedisplaystyle.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
@@ -12,8 +13,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Client configuration. Every rendered attribute line belongs to exactly one of six display types
@@ -60,6 +63,7 @@ public final class DisplayConfig {
     public String iconFont = "attribute_display_style:icons";
     public int headerColor = 0xAAAAAA;
     public List<String> additionAsPercentageAttributes = new ArrayList<>();
+    public Map<String, Double> attributeDisplayMultipliers = new LinkedHashMap<>();
     public boolean showUnchangedModifiers = false;
     public boolean expandOnShift = true;
     public boolean replaceVanillaAttributeTooltips = true;
@@ -100,6 +104,7 @@ public final class DisplayConfig {
         value.iconFont = text(json, "icon_font", value.iconFont);
         value.headerColor = color(json, "header_color", value.headerColor);
         value.additionAsPercentageAttributes = strings(json, "addition_as_percentage_attributes");
+        value.attributeDisplayMultipliers = multipliers(json, "attribute_display_multipliers");
         value.showUnchangedModifiers = bool(json, "show_unchanged_modifiers", value.showUnchangedModifiers);
         value.expandOnShift = bool(json, "expand_on_shift", value.expandOnShift);
         value.replaceVanillaAttributeTooltips = bool(json, "replace_vanilla_attribute_tooltips", value.replaceVanillaAttributeTooltips);
@@ -220,6 +225,16 @@ public final class DisplayConfig {
         JsonArray attributes = new JsonArray();
         value.additionAsPercentageAttributes.forEach(attribute -> attributes.add(new JsonPrimitive(attribute)));
         json.add("addition_as_percentage_attributes", attributes);
+        JsonObject multipliers = new JsonObject();
+        if (value.attributeDisplayMultipliers != null) {
+            value.attributeDisplayMultipliers.forEach((attributeId, multiplier) -> {
+                String normalized = normalizeAttributeId(attributeId);
+                if (normalized != null && multiplier != null && isValidMultiplier(multiplier)) {
+                    multipliers.addProperty(normalized, multiplier);
+                }
+            });
+        }
+        json.add("attribute_display_multipliers", multipliers);
         json.addProperty("show_unchanged_modifiers", value.showUnchangedModifiers);
         json.addProperty("expand_on_shift", value.expandOnShift);
         json.addProperty("replace_vanilla_attribute_tooltips", value.replaceVanillaAttributeTooltips);
@@ -231,6 +246,46 @@ public final class DisplayConfig {
         putStyle(json, "positive_expanded", value.positiveExpanded);
         putStyle(json, "negative_expanded", value.negativeExpanded);
         return json;
+    }
+
+    private static Map<String, Double> multipliers(JsonObject json, String key) {
+        Map<String, Double> values = new LinkedHashMap<>();
+        if (!json.has(key) || !json.get(key).isJsonObject()) return values;
+
+        for (Map.Entry<String, JsonElement> entry : json.getAsJsonObject(key).entrySet()) {
+            JsonElement element = entry.getValue();
+            if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isNumber()) continue;
+
+            double multiplier;
+            try {
+                multiplier = element.getAsDouble();
+            } catch (RuntimeException ignored) {
+                continue;
+            }
+            String attributeId = normalizeAttributeId(entry.getKey());
+            if (attributeId != null && isValidMultiplier(multiplier)) values.put(attributeId, multiplier);
+        }
+        return values;
+    }
+
+    private static String normalizeAttributeId(String attributeId) {
+        if (attributeId == null || attributeId.isBlank()) return null;
+        try {
+            return new ResourceLocation(attributeId.trim().toLowerCase(Locale.ROOT)).toString();
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private static boolean isValidMultiplier(double multiplier) {
+        return Double.isFinite(multiplier) && multiplier > 0D;
+    }
+
+    public double attributeDisplayMultiplier(String attributeId) {
+        String normalized = normalizeAttributeId(attributeId);
+        if (normalized == null || attributeDisplayMultipliers == null) return 1D;
+        Double multiplier = attributeDisplayMultipliers.get(normalized);
+        return multiplier != null && isValidMultiplier(multiplier) ? multiplier : 1D;
     }
 
     public boolean isAdditionAsPercentage(String attributeId) {

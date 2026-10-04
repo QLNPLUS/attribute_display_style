@@ -516,7 +516,8 @@ public final class AttributeTooltipHandler {
             : 0D;
         total += bonus;
         Component name = Component.translatable(attribute.getDescriptionId());
-        output.add(formatLine(Operation.ADDITION, total, false, name, flag, singleStyle(total)));
+        String registryId = attributeId(attribute);
+        output.add(formatLine(Operation.ADDITION, total, false, name, registryId, flag, singleStyle(total)));
 
         if (!config.expandOnShift || !Screen.hasShiftDown() || (children.isEmpty() && bonus == 0D)) return;
         addNestedSource(attribute, Operation.ADDITION, false, weaponBase, flag, output);
@@ -532,11 +533,12 @@ public final class AttributeTooltipHandler {
         double total = modifiers.stream().mapToDouble(AttributeModifier::getAmount).sum();
         boolean percentage = percentageFor(attribute, operation);
         Component name = Component.translatable(attribute.getDescriptionId());
+        String registryId = attributeId(attribute);
         if (modifiers.size() > 1) {
-            output.add(formatLine(operation, scaled(total, percentage), percentage, name, flag, mergedStyle(total)));
+            output.add(formatLine(operation, scaled(total, percentage), percentage, name, registryId, flag, mergedStyle(total)));
             if (config.expandOnShift && Screen.hasShiftDown()) {
                 for (AttributeModifier modifier : modifiers) {
-                    output.add(formatLine(operation, scaled(modifier.getAmount(), percentage), percentage, name, flag,
+                    output.add(formatLine(operation, scaled(modifier.getAmount(), percentage), percentage, name, registryId, flag,
                         expandedStyle(modifier.getAmount())));
                 }
             }
@@ -544,7 +546,7 @@ public final class AttributeTooltipHandler {
         }
 
         double amount = modifiers.get(0).getAmount();
-        output.add(formatLine(operation, scaled(amount, percentage), percentage, name, flag, singleStyle(amount)));
+        output.add(formatLine(operation, scaled(amount, percentage), percentage, name, registryId, flag, singleStyle(amount)));
     }
 
     private static boolean percentageFor(Attribute attribute, Operation operation) {
@@ -569,16 +571,18 @@ public final class AttributeTooltipHandler {
 
     static void addNestedSource(Attribute attribute, Operation operation, boolean percentage, double amount, TooltipFlag flag, List<Component> output) {
         output.add(formatLine(operation, scaled(amount, percentage), percentage,
-            Component.translatable(attribute.getDescriptionId()), flag, expandedStyle(amount)));
+            Component.translatable(attribute.getDescriptionId()), attributeId(attribute), flag, expandedStyle(amount)));
     }
 
     private static double scaled(double amount, boolean percentage) {
         return percentage ? amount * 100D : amount;
     }
 
-    static MutableComponent formatLine(Operation operation, double amount, boolean percentage, Component name, TooltipFlag flag, DisplayConfig.Style appearance) {
-        String sign = amount >= 0 ? "+" : "-";
-        String value = NUMBER.format(Math.abs(amount));
+    static MutableComponent formatLine(Operation operation, double amount, boolean percentage, Component name, String attributeId, TooltipFlag flag, DisplayConfig.Style appearance) {
+        double scaledAmount = amount * DisplayConfig.get().attributeDisplayMultiplier(attributeId);
+        double displayAmount = Double.isFinite(scaledAmount) ? scaledAmount : amount;
+        String sign = displayAmount >= 0 ? "+" : "-";
+        String value = NUMBER.format(Math.abs(displayAmount));
         String suffix = percentage ? "%" : "";
         MutableComponent line = Component.literal(appearance.prefix).withStyle(style(appearance.prefixColor))
             .append(Component.literal(appearance.icon).withStyle(style(appearance.iconColor).withFont(DisplayConfig.get().iconFontId())))
