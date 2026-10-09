@@ -47,6 +47,20 @@ All six objects have the same seven fields:
 - attribute_display_multipliers: an object mapping attribute registry IDs to positive, finite display multipliers. The multiplier applies to the displayed number after existing percentage conversion, without changing gameplay values; values below 1 are supported. For a non-percentage modifier, a multiplier of 100 turns 0.05 into 5; 0.01 turns a displayed 1000 into 10. If the existing rules format a value as a percentage, the multiplier scales its numeric part and keeps the `%` suffix. Existing `#.##` formatting is retained, so results below about 0.005 may round to 0.
 - show_unchanged_modifiers, expand_on_shift, replace_vanilla_attribute_tooltips: behavior switches.
 - style_other_mod_attribute_tooltips: restyle and merge the attribute lists other mods add, default true. Covers the Curios slot lists and the Confluence item prefixes; set to false to leave them exactly as those mods render them.
+- empty_tooltip_lines: what to do with tooltip lines that carry no text at all, default keep. The rule looks only at the line itself, never at which mod wrote it, and it measures the whole line - a line assembled from parts, such as a renamed item's name or one of this mod's own attribute lines, counts by the text it renders in full and is never mistaken for a blank one.
+  - keep: nothing is removed, which is how the mod behaved before this option existed.
+  - collapse: a run of consecutive text-less lines becomes a single one, and ones at the very start or end of the tooltip are dropped.
+  - remove: every text-less line is dropped. Headers such as "When in mainhand:" stay - only the empty line in front of them goes.
+
+Confluence 1.2.8 wraps its attribute block with an empty line above the header and another one between the header and the values, which leaves gaps like the ones around "When affecting summons:". Set empty_tooltip_lines to remove to close them, or to collapse to keep a single gap without the doubles.
+
+An existing config file is never rewritten, so add the key by hand:
+
+```json
+"empty_tooltip_lines": "remove"
+```
+
+Or delete config/attribute_display_style.json and let the mod regenerate it. Either way, run /attribute_display_style reload afterwards.
 
 Example:
 
@@ -62,6 +76,10 @@ Example:
 `attribute_display_multipliers` 是按属性注册 ID 设置的显示倍率，只改变提示中的数字，不影响游戏内实际属性。倍率必须是大于 0 的有限数值，也支持小于 1 的倍率，例如 `0.01`。对于没有按百分比显示的 `0.05`，配置 `100` 后显示为 `5`；倍率 `0.01` 会把 `1000` 缩放为 `10`。若属性本身按百分比显示，倍率会缩放百分号前的数字并保留 `%`。现有 `#.##` 格式不变，因此缩放后小于约 `0.005` 的数值可能会舍入为 `0`。
 
 编辑配置后运行 `/attribute_display_style reload`，或按 F3+T 重新加载。
+
+`empty_tooltip_lines` 控制提示框里"完全没有文字"的行，默认 `keep`（与旧版行为一致，不做任何处理）。判定只看这一行本身有没有文字，不看它是哪个 mod 写的。`collapse` 把连续多条无文字行压成一条，并去掉提示框开头和结尾的无文字行；`remove` 删除全部无文字行，"主手："这类分组标题本身保留，只是它前面那条空行不再显示。
+
+Confluence 1.2.8 会在自己的属性段上方、以及标题与数值之间各插入一条空行，因此"作用于召唤物时："上下都出现空隙。想要完全紧凑就设 `remove`，想保留一处间隔但去掉多余空行就设 `collapse`。已有配置文件不会被自动改写，需要手动加入该键，或删除 `config/attribute_display_style.json` 让 mod 重新生成。
 
 A config written by an earlier version is migrated automatically: the previous flat color, icon, `*_parts` and nested_prefix keys are folded into the six types the next time the file is read, so nothing is lost.
 

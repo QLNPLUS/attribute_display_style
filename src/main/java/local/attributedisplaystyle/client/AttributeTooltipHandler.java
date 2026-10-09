@@ -153,7 +153,12 @@ public final class AttributeTooltipHandler {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onForeignTooltip(ItemTooltipEvent event) {
-        // Runs after other mods appended their attribute lines so those can be merged, dropped or moved.
+        styleForeignLines(event);
+        applyEmptyLinePolicy(event.getToolTip());
+    }
+
+    /** Runs after other mods appended their attribute lines so those can be merged, dropped or moved. */
+    private static void styleForeignLines(ItemTooltipEvent event) {
         if (!DisplayConfig.get().replaceVanillaAttributeTooltips) return;
         List<Component> lines = event.getToolTip();
         RenderedSection section = RENDERED_GROUPS.remove(lines);
@@ -194,6 +199,11 @@ public final class AttributeTooltipHandler {
 
     @SubscribeEvent
     public void onGatherTooltip(RenderTooltipEvent.GatherComponents event) {
+        // Blank lines are dropped straight out of the element list. The list is deliberately not rebuilt
+        // here: tooltip mods such as smart tooltip scroll replay this event with their own subset of the
+        // elements, and replacing every text line at once would drop or reorder what they kept.
+        removeEmptyElements(event.getTooltipElements());
+
         // Safety net: some mods append their attribute lines after the tooltip events, so the finished
         // line list is handled once more right before the tooltip is turned into render components.
         if (!DisplayConfig.get().replaceVanillaAttributeTooltips) return;
@@ -327,6 +337,85 @@ public final class AttributeTooltipHandler {
     static boolean isEmpty(Component line) {
         if (line.getContents() == ComponentContents.EMPTY) return true;
         return line.getContents() instanceof LiteralContents contents && contents.text().isEmpty();
+    }
+
+    /**
+     * A line that draws nothing. The whole component tree is measured, because a line is often built as
+     * Component.empty().append(part).append(part) or Component.literal("").append(part): its own contents
+     * are then empty while the text lives in the siblings, and reading only the contents would mistake
+     * the finished line for a blank one.
+     */
+    static boolean isEmptyLine(Component line) {
+        if (line == null) return false;
+        try {
+            return line.getString().isBlank();
+        } catch (RuntimeException | LinkageError ignored) {
+            // A line whose text cannot be resolved is left alone rather than guessed at.
+            return false;
+        }
+    }
+
+    /**
+     * Applies the configured empty-line policy to a finished tooltip. Lines are removed in place, so a
+     * mod that reads the list afterwards sees the same layout the tooltip is drawn with.
+     */
+    static void applyEmptyLinePolicy(List<Component> lines) {
+        DisplayConfig.EmptyLineMode mode = DisplayConfig.get().emptyTooltipLines;
+        if (mode == DisplayConfig.EmptyLineMode.KEEP || lines.isEmpty()) return;
+
+        List<Component> kept = new ArrayList<>(lines.size());
+        Component pending = null;
+        for (Component line : lines) {
+            if (isEmptyLine(line)) {
+                if (mode == DisplayConfig.EmptyLineMode.REMOVE) continue;
+                // The first blank of a run is kept so any style it carries survives.
+                if (pending == null) pending = line;
+                continue;
+            }
+            if (pending != null) {
+                // Blanks ahead of the first text line are dropped; a trailing run never gets flushed.
+                if (!kept.isEmpty()) kept.add(pending);
+                pending = null;
+            }
+            kept.add(line);
+        }
+        lines.clear();
+        lines.addAll(kept);
+    }
+
+    /**
+     * Drops the text-less lines straight out of the render element list. Only those elements are touched,
+     * so everything else the list holds - recipe stacks, another mod's tooltip image - keeps its place.
+     */
+    static void removeEmptyElements(List<Either<FormattedText, TooltipComponent>> elements) {
+        DisplayConfig.EmptyLineMode mode = DisplayConfig.get().emptyTooltipLines;
+        if (mode == DisplayConfig.EmptyLineMode.KEEP || elements.isEmpty()) return;
+
+        List<Integer> drop = new ArrayList<>();
+        int pending = -1;
+        boolean seenText = false;
+        for (int index = 0; index < elements.size(); index++) {
+            if (!(elements.get(index).left().orElse(null) instanceof Component line)) continue;
+            if (!isEmptyLine(line)) {
+                seenText = true;
+                pending = -1;
+                continue;
+            }
+            // No blank belongs ahead of the first text line, and REMOVE keeps none at all.
+            if (mode == DisplayConfig.EmptyLineMode.REMOVE || !seenText) {
+                if (pending >= 0) drop.add(pending);
+                drop.add(index);
+                pending = -1;
+                continue;
+            }
+            // COLLAPSE keeps a single blank per run; the newest one stands in for the whole run.
+            if (pending >= 0) drop.add(pending);
+            pending = index;
+        }
+        // A run that reaches the end of the tooltip would leave a trailing blank, so it goes too.
+        if (pending >= 0) drop.add(pending);
+
+        for (int index = drop.size() - 1; index >= 0; index--) elements.remove((int) drop.get(index));
     }
 
     static boolean hasTranslatable(Component component, String prefix) {

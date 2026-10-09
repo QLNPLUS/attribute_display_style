@@ -60,6 +60,16 @@ public final class DisplayConfig {
         }
     }
 
+    /** How the lines of a tooltip that carry no text at all are handled, whoever wrote them. */
+    public enum EmptyLineMode {
+        /** Leave every line as it was written. */
+        KEEP,
+        /** A run of text-less lines becomes one; leading and trailing ones are dropped. */
+        COLLAPSE,
+        /** Every text-less line is dropped, no matter which mod added it. */
+        REMOVE
+    }
+
     public String iconFont = "attribute_display_style:icons";
     public int headerColor = 0xAAAAAA;
     public List<String> additionAsPercentageAttributes = new ArrayList<>();
@@ -68,6 +78,7 @@ public final class DisplayConfig {
     public boolean expandOnShift = true;
     public boolean replaceVanillaAttributeTooltips = true;
     public boolean styleOtherModAttributeTooltips = true;
+    public EmptyLineMode emptyTooltipLines = EmptyLineMode.KEEP;
 
     public Style positiveSingle = new Style("", "\uDB80\uDC15", 0x55FF55, 0xFFFFFF, 0x777777, 0xFFFFFF, 0x777777);
     public Style negativeSingle = new Style("", "\uDB80\uDC15", 0xFF5555, 0xFFFFFF, 0x777777, 0xFF5555, 0x777777);
@@ -110,6 +121,7 @@ public final class DisplayConfig {
         value.replaceVanillaAttributeTooltips = bool(json, "replace_vanilla_attribute_tooltips", value.replaceVanillaAttributeTooltips);
         value.styleOtherModAttributeTooltips = bool(json, "style_curio_attribute_tooltips",
             bool(json, "style_other_mod_attribute_tooltips", value.styleOtherModAttributeTooltips));
+        value.emptyTooltipLines = emptyLineMode(json, "empty_tooltip_lines", value.emptyTooltipLines);
 
         if (json.has("positive_single") || json.has("negative_single")) {
             value.positiveSingle = style(json, "positive_single", value.positiveSingle);
@@ -191,6 +203,16 @@ public final class DisplayConfig {
         return json.get(key).getAsBoolean();
     }
 
+    /** Reads one of the three empty-line modes; an unknown value keeps the fallback. */
+    private static EmptyLineMode emptyLineMode(JsonObject json, String key, EmptyLineMode fallback) {
+        if (!json.has(key) || json.get(key).isJsonNull()) return fallback;
+        try {
+            return EmptyLineMode.valueOf(json.get(key).getAsString().trim().toUpperCase(Locale.ROOT));
+        } catch (RuntimeException ignored) {
+            return fallback;
+        }
+    }
+
     private static List<String> strings(JsonObject json, String key) {
         List<String> values = new ArrayList<>();
         if (!json.has(key) || !json.get(key).isJsonArray()) return values;
@@ -239,6 +261,7 @@ public final class DisplayConfig {
         json.addProperty("expand_on_shift", value.expandOnShift);
         json.addProperty("replace_vanilla_attribute_tooltips", value.replaceVanillaAttributeTooltips);
         json.addProperty("style_curio_attribute_tooltips", value.styleOtherModAttributeTooltips);
+        json.addProperty("empty_tooltip_lines", value.emptyTooltipLines.name().toLowerCase(Locale.ROOT));
         putStyle(json, "positive_single", value.positiveSingle);
         putStyle(json, "negative_single", value.negativeSingle);
         putStyle(json, "positive_merged", value.positiveMerged);
