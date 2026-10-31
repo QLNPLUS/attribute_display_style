@@ -8,6 +8,7 @@ Attribute Display Style replaces Minecraft's default item attribute lines with a
 
 - **Clear grouped stats:** Combine repeated modifiers while keeping their individual sources available with Shift.
 - **Style every line:** Set separate prefixes, glyphs, and colors for positive or negative single, merged, and expanded lines.
+- **Color item names per item:** Map item IDs to a name color — one item (`minecraft:elytra`), everything a mod adds (`examplemod:*`), or every item (`*`). The color is applied after the tooltip is finished, so it wins over the item's rarity color while bold, italic and the font are kept.
 - **Use your own icons:** Choose text or Unicode glyphs, or use private-use glyphs backed by bitmap icons from a resource-pack font.
 - **Show selected bonuses as percentages:** Configure attribute IDs whose additive values should display as percentages (for example, `0.05` as `+5%`).
 - **Readable weapon totals:** Attack damage and attack speed show the total with the player's base value. Hold Shift to inspect the item's contribution and enchantment damage bonus.
