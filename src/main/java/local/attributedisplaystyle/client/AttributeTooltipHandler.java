@@ -91,7 +91,8 @@ public final class AttributeTooltipHandler {
 
     private static String itemId(ItemStack stack) {
         try {
-            net.minecraft.resources.ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            // var keeps this off the id class, whose name changed in the newer supported versions.
+            var key = BuiltInRegistries.ITEM.getKey(stack.getItem());
             return key == null ? null : key.toString();
         } catch (Exception | LinkageError ignored) {
             // Registry not reachable in this context; the name simply keeps the color it was given.

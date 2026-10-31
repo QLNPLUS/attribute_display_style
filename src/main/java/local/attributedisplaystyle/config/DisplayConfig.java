@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Client configuration. Every rendered attribute line belongs to exactly one of six display types
@@ -34,6 +35,9 @@ public final class DisplayConfig {
     private static final int NEGATIVE_MERGED = 0xF93131;
     private static final int EXPANDED = 0x777777;
     private static final String EXPANDED_PREFIX = "└ ";
+
+    /** The characters a namespaced id may use, the same set the registry itself accepts. */
+    private static final Pattern ITEM_ID = Pattern.compile("[a-z0-9_.\\-]+:[a-z0-9/._\\-]+");
 
     /** The look of one display type: its prefix, glyph and the color of every rendered segment. */
     public static final class Style {
@@ -335,6 +339,8 @@ public final class DisplayConfig {
     /**
      * Normalizes an item id, allowing the {@code mod:*} and {@code *} wildcards that cover a whole mod or
      * every item. An id without a namespace gets the minecraft one, and anything malformed gives null.
+     * The id is checked against the characters the registry itself accepts rather than through an id
+     * class, whose name and constructors differ between the supported versions.
      */
     private static String normalizeItemId(String itemId) {
         if (itemId == null) return null;
@@ -351,11 +357,8 @@ public final class DisplayConfig {
         }
         if ("*".equals(path)) return namespace.isEmpty() ? "*" : namespace + ":*";
         if (path.isEmpty()) return null;
-        try {
-            return new ResourceLocation(namespace, path).toString();
-        } catch (RuntimeException ignored) {
-            return null;
-        }
+        String id = namespace + ":" + path;
+        return ITEM_ID.matcher(id).matches() ? id : null;
     }
 
     private static boolean isValidMultiplier(double multiplier) {
