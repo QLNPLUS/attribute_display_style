@@ -74,6 +74,7 @@ public final class DisplayConfig {
     public int headerColor = 0xAAAAAA;
     public List<String> additionAsPercentageAttributes = new ArrayList<>();
     public Map<String, Double> attributeDisplayMultipliers = new LinkedHashMap<>();
+    public Map<String, Integer> itemNameColors = new LinkedHashMap<>();
     public boolean showUnchangedModifiers = false;
     public boolean expandOnShift = true;
     public boolean replaceVanillaAttributeTooltips = true;
@@ -116,6 +117,7 @@ public final class DisplayConfig {
         value.headerColor = color(json, "header_color", value.headerColor);
         value.additionAsPercentageAttributes = strings(json, "addition_as_percentage_attributes");
         value.attributeDisplayMultipliers = multipliers(json, "attribute_display_multipliers");
+        value.itemNameColors = itemColors(json, "item_name_colors");
         value.showUnchangedModifiers = bool(json, "show_unchanged_modifiers", value.showUnchangedModifiers);
         value.expandOnShift = bool(json, "expand_on_shift", value.expandOnShift);
         value.replaceVanillaAttributeTooltips = bool(json, "replace_vanilla_attribute_tooltips", value.replaceVanillaAttributeTooltips);
@@ -181,14 +183,21 @@ public final class DisplayConfig {
             color(object, "name_color", fallback.nameColor));
     }
 
+    /** Reads one color key from an object. */
     private static int color(JsonObject json, String key, int fallback) {
         if (!json.has(key) || json.get(key).isJsonNull()) return fallback;
+        return parseColor(json.get(key).getAsString(), fallback);
+    }
+
+    /** Reads a color written as {@code #rrggbb}, {@code 0xrrggbb} or {@code rrggbb}. */
+    private static int parseColor(String value, int fallback) {
         try {
-            String value = json.get(key).getAsString().trim();
-            if (value.startsWith("#")) value = value.substring(1);
-            if (value.length() != 6) return fallback;
-            return Integer.parseInt(value, 16) & 0xFFFFFF;
-        } catch (Exception ignored) {
+            String text = value.trim().toLowerCase(Locale.ROOT);
+            if (text.startsWith("#")) text = text.substring(1);
+            else if (text.startsWith("0x")) text = text.substring(2);
+            if (text.length() != 6) return fallback;
+            return Integer.parseInt(text, 16) & 0xFFFFFF;
+        } catch (Exception | LinkageError ignored) {
             return fallback;
         }
     }
@@ -257,6 +266,13 @@ public final class DisplayConfig {
             });
         }
         json.add("attribute_display_multipliers", multipliers);
+        JsonObject nameColors = new JsonObject();
+        if (value.itemNameColors != null) {
+            value.itemNameColors.forEach((itemId, color) -> {
+                if (itemId != null && color != null && color >= 0) putColor(nameColors, itemId, color);
+            });
+        }
+        json.add("item_name_colors", nameColors);
         json.addProperty("show_unchanged_modifiers", value.showUnchangedModifiers);
         json.addProperty("expand_on_shift", value.expandOnShift);
         json.addProperty("replace_vanilla_attribute_tooltips", value.replaceVanillaAttributeTooltips);
@@ -269,6 +285,22 @@ public final class DisplayConfig {
         putStyle(json, "positive_expanded", value.positiveExpanded);
         putStyle(json, "negative_expanded", value.negativeExpanded);
         return json;
+    }
+
+    /** Reads the item name colors, keyed by item registry id; an unparseable entry is skipped. */
+    private static Map<String, Integer> itemColors(JsonObject json, String key) {
+        Map<String, Integer> values = new LinkedHashMap<>();
+        if (!json.has(key) || !json.get(key).isJsonObject()) return values;
+
+        for (Map.Entry<String, JsonElement> entry : json.getAsJsonObject(key).entrySet()) {
+            String itemId = normalizeItemId(entry.getKey());
+            JsonElement element = entry.getValue();
+            if (itemId == null || !element.isJsonPrimitive()) continue;
+
+            int color = parseColor(element.getAsString(), -1);
+            if (color >= 0) values.put(itemId, color);
+        }
+        return values;
     }
 
     private static Map<String, Double> multipliers(JsonObject json, String key) {
@@ -300,6 +332,32 @@ public final class DisplayConfig {
         }
     }
 
+    /**
+     * Normalizes an item id, allowing the {@code mod:*} and {@code *} wildcards that cover a whole mod or
+     * every item. An id without a namespace gets the minecraft one, and anything malformed gives null.
+     */
+    private static String normalizeItemId(String itemId) {
+        if (itemId == null) return null;
+        String trimmed = itemId.trim().toLowerCase(Locale.ROOT);
+        if (trimmed.isEmpty()) return null;
+        if ("*".equals(trimmed)) return trimmed;
+
+        String namespace = "minecraft";
+        String path = trimmed;
+        int separator = trimmed.indexOf(':');
+        if (separator >= 0) {
+            namespace = trimmed.substring(0, separator);
+            path = trimmed.substring(separator + 1);
+        }
+        if ("*".equals(path)) return namespace.isEmpty() ? "*" : namespace + ":*";
+        if (path.isEmpty()) return null;
+        try {
+            return new ResourceLocation(namespace, path).toString();
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
     private static boolean isValidMultiplier(double multiplier) {
         return Double.isFinite(multiplier) && multiplier > 0D;
     }
@@ -309,6 +367,23 @@ public final class DisplayConfig {
         if (normalized == null || attributeDisplayMultipliers == null) return 1D;
         Double multiplier = attributeDisplayMultipliers.get(normalized);
         return multiplier != null && isValidMultiplier(multiplier) ? multiplier : 1D;
+    }
+
+    /**
+     * The color configured for an item, looking the exact id up first, then its mod's wildcard and
+     * finally the global one. Returns null when nothing is configured, which leaves the name as it is.
+     */
+    public Integer itemNameColor(String itemId) {
+        String normalized = normalizeItemId(itemId);
+        if (normalized == null || itemNameColors == null || itemNameColors.isEmpty()) return null;
+
+        Integer color = itemNameColors.get(normalized);
+        if (color == null) {
+            int separator = normalized.indexOf(':');
+            if (separator > 0) color = itemNameColors.get(normalized.substring(0, separator) + ":*");
+        }
+        if (color == null) color = itemNameColors.get("*");
+        return color == null || color < 0 ? null : color;
     }
 
     public boolean isAdditionAsPercentage(String attributeId) {

@@ -9,6 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.commands.Commands;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentContents;
 import net.minecraft.network.chat.FormattedText;
@@ -73,6 +74,40 @@ public final class AttributeTooltipHandler {
         public static void reload(RegisterClientReloadListenersEvent event) {
             DisplayConfig.load();
         }
+    }
+
+    /**
+     * Recolors the item name last, so the configured color wins over the one rarity gives the name and
+     * over whatever other mods did to that line. The name is always the first line of a tooltip.
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onItemNameColor(ItemTooltipEvent event) {
+        List<Component> lines = event.getToolTip();
+        if (lines.isEmpty()) return;
+        Integer color = DisplayConfig.get().itemNameColor(itemId(event.getItemStack()));
+        if (color == null) return;
+        lines.set(0, recolored(lines.get(0), color));
+    }
+
+    private static String itemId(ItemStack stack) {
+        try {
+            net.minecraft.resources.ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            return key == null ? null : key.toString();
+        } catch (Exception | LinkageError ignored) {
+            // Registry not reachable in this context; the name simply keeps the color it was given.
+            return null;
+        }
+    }
+
+    /**
+     * Forces one color onto every segment of a component tree. The rest of each segment's style stays as
+     * it is, so a bold or italic name is still bold or italic, only its color changes.
+     */
+    private static Component recolored(Component component, int color) {
+        MutableComponent result = MutableComponent.create(component.getContents())
+            .withStyle(component.getStyle().withColor(TextColor.fromRgb(color)));
+        for (Component sibling : component.getSiblings()) result.append(recolored(sibling, color));
+        return result;
     }
 
     @SubscribeEvent
