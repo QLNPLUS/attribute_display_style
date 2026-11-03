@@ -16,6 +16,14 @@ public final class AttributeDisplayStyle {
             DisplayConfig.load();
             MinecraftForge.EVENT_BUS.register(new AttributeTooltipHandler());
             FMLJavaModLoadingContext.get().getModEventBus().register(AttributeTooltipHandler.ModBusEvents.class);
+            FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onClientSetup);
         });
+    }
+
+    private void onClientSetup(net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent event) {
+        // Registered here rather than in the constructor: the event bus invokes equal-priority listeners in
+        // registration order, and this one has to outlast other mods that rewrite the finished tooltip title
+        // during assembly. Those subscribe while their mods are constructed, which happens before this stage.
+        MinecraftForge.EVENT_BUS.register(new AttributeTooltipHandler.GatherNameColor());
     }
 }

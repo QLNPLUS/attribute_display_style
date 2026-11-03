@@ -51,7 +51,7 @@ All six objects have the same seven fields:
   - keep: nothing is removed, which is how the mod behaved before this option existed.
   - collapse: a run of consecutive text-less lines becomes a single one, and ones at the very start or end of the tooltip are dropped.
   - remove: every text-less line is dropped. Headers such as "When in mainhand:" stay - only the empty line in front of them goes.
-- item_name_colors: an object mapping item registry IDs to the color of that item's name, default empty. The name is recolored after the tooltip is finished, so the color wins over the one the item's rarity gives it and over what other mods painted on that line. Keys are `minecraft:elytra` for one item, `examplemod:*` for a whole mod, or `*` for every item, and the most specific key that matches is the one used. A key without a namespace means the minecraft one. Colors are written as `#rrggbb`, `0xrrggbb` or `rrggbb`, and this now also works for every other color option. The color is applied to every part of the name, so a name another mod colored piece by piece still comes out in your color, while bold, italic and the font are kept. Only the name line changes - the rest of the tooltip is left alone.
+- item_name_colors: an object mapping item registry IDs to the color of that item's name, default empty. The name is recolored after the tooltip is finished and once more while the tooltip is assembled for rendering, so the color wins over the one the item's rarity gives it and over what other mods painted on that line at either stage. Keys are `minecraft:elytra` for one item, `examplemod:*` for a whole mod, or `*` for every item, and the most specific key that matches is the one used. A key without a namespace means the minecraft one. Colors are written as `#rrggbb`, `0xrrggbb` or `rrggbb`, and this now also works for every other color option. The color is applied to every part of the name, so a name another mod colored piece by piece still comes out in your color, while bold, italic and the font are kept. Only the name line changes - the rest of the tooltip is left alone.
 
 Confluence 1.2.8 wraps its attribute block with an empty line above the header and another one between the header and the values, which leaves gaps like the ones around "When affecting summons:". Set empty_tooltip_lines to remove to close them, or to collapse to keep a single gap without the doubles.
 
@@ -90,7 +90,7 @@ Example:
 
 Confluence 1.2.8 会在自己的属性段上方、以及标题与数值之间各插入一条空行，因此"作用于召唤物时："上下都出现空隙。想要完全紧凑就设 `remove`，想保留一处间隔但去掉多余空行就设 `collapse`。已有配置文件不会被自动改写，需要手动加入该键，或删除 `config/attribute_display_style.json` 让 mod 重新生成。
 
-`item_name_colors` 按物品注册 ID 覆盖物品名颜色，默认为空。着色发生在提示框内容全部生成之后，因此会盖过稀有度给的名字颜色，也盖过其他 mod 对这一行做的着色。键可以写单个物品 `minecraft:elytra`、某个 mod 的全部物品 `examplemod:*`，或用 `*` 表示所有物品，匹配到的键里最具体的那个生效；省略命名空间时按 `minecraft` 处理。颜色支持 `#rrggbb`、`0xrrggbb` 和 `rrggbb` 三种写法，其它颜色配置项同样支持。颜色会作用到名字的所有片段，所以别的 mod 分段上的颜色也会被统一成你设的颜色，加粗、斜体和字体保持不变。只有物品名这一行会变，提示框其余内容不受影响。
+`item_name_colors` 按物品注册 ID 覆盖物品名颜色，默认为空。着色发生在提示框内容全部生成之后，并在提示框被装配成渲染组件时再补一次，因此会盖过稀有度给的名字颜色，也盖过其他 mod 在任一阶段对这一行做的着色。键可以写单个物品 `minecraft:elytra`、某个 mod 的全部物品 `examplemod:*`，或用 `*` 表示所有物品，匹配到的键里最具体的那个生效；省略命名空间时按 `minecraft` 处理。颜色支持 `#rrggbb`、`0xrrggbb` 和 `rrggbb` 三种写法，其它颜色配置项同样支持。颜色会作用到名字的所有片段，所以别的 mod 分段上的颜色也会被统一成你设的颜色，加粗、斜体和字体保持不变。只有物品名这一行会变，提示框其余内容不受影响。
 
 A config written by an earlier version is migrated automatically: the previous flat color, icon, `*_parts` and nested_prefix keys are folded into the six types the next time the file is read, so nothing is lost.
 

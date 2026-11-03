@@ -79,6 +79,10 @@ public final class AttributeTooltipHandler {
     /**
      * Recolors the item name last, so the configured color wins over the one rarity gives the name and
      * over whatever other mods did to that line. The name is always the first line of a tooltip.
+     *
+     * <p>Only the tooltip event is covered here. Mods that rewrite the finished title while the tooltip is
+     * assembled into render components run after this and would win, so {@link GatherNameColor} repeats
+     * the recolor at that later stage.
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onItemNameColor(ItemTooltipEvent event) {
@@ -270,6 +274,33 @@ public final class AttributeTooltipHandler {
         for (int index = positions.size() - 1; index >= 1; index--) elements.remove((int) positions.get(index));
         elements.remove(first);
         for (int index = lines.size() - 1; index >= 0; index--) elements.add(first, Either.left(lines.get(index)));
+    }
+
+    /**
+     * Repeats the name recolor once the tooltip is about to be turned into render components. Tooltip mods
+     * that rebuild the finished title subscribe at LOWEST here and therefore land after the tooltip event,
+     * so this listener is registered separately and last: at equal priority the event bus runs listeners in
+     * registration order, and only then does the configured color still win.
+     */
+    public static final class GatherNameColor {
+        @SubscribeEvent(priority = EventPriority.LOWEST)
+        public void onGather(RenderTooltipEvent.GatherComponents event) {
+            ItemStack stack = event.getItemStack();
+            if (stack == null) return;
+            Integer color = DisplayConfig.get().itemNameColor(itemId(stack));
+            if (color == null) return;
+            recolorFirstText(event.getTooltipElements(), color);
+        }
+    }
+
+    /** Recolors the first text element in place; tooltip components and the rest of the list stay untouched. */
+    private static void recolorFirstText(List<Either<FormattedText, TooltipComponent>> elements, int color) {
+        for (int index = 0; index < elements.size(); index++) {
+            if (elements.get(index).left().orElse(null) instanceof Component component) {
+                elements.set(index, Either.left(recolored(component, color)));
+                return;
+            }
+        }
     }
 
     private static Set<String> coveredAttributes(ItemStack stack) {
