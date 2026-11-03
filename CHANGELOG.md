@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.1
+
+- Fixed `item_name_colors` losing to mods that recolor the finished title while the tooltip is assembled into render components, such as Confluence's rarity remapping. The name is now recolored once more at that stage, so the configured color is the one that shows. No config change is needed.
+
 ## 1.4.0
 
 - Added `item_name_colors`, which colors an item's own name by registry ID. Keys are `minecraft:elytra` for a single item, `examplemod:*` for everything one mod adds, or `*` for every item, and the most specific key that matches is the one used; a key without a namespace means `minecraft:`. Colors are written as `#rrggbb`, `0xrrggbb` or `rrggbb`. The name is recolored after the tooltip has been built, so the color wins over the item's rarity color and over what other mods painted on that line, while bold, italic and the font are kept. Only the name line changes.
