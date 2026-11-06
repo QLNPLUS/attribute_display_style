@@ -25,5 +25,6 @@ public final class AttributeDisplayStyle {
         // registration order, and this one has to outlast other mods that rewrite the finished tooltip title
         // during assembly. Those subscribe while their mods are constructed, which happens before this stage.
         MinecraftForge.EVENT_BUS.register(new AttributeTooltipHandler.GatherNameColor());
+        MinecraftForge.EVENT_BUS.register(new AttributeTooltipHandler.GatherProbe());
     }
 }

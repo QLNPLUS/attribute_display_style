@@ -60,6 +60,14 @@ public final class AttributeTooltipHandler {
 
     private static final Map<List<Component>, RenderedSection> RENDERED_GROUPS = new IdentityHashMap<>();
     private static int debugDumps = 0;
+    private static int debugBefore = 0;
+    private static int debugProbe = 0;
+    /** The stack the debug command was run on; dumps only fire for that same item. */
+    private static ItemStack debugTarget = ItemStack.EMPTY;
+
+    private static boolean debugTargetMatches(ItemStack stack) {
+        return stack != null && !debugTarget.isEmpty() && ItemStack.isSameItemSameTags(debugTarget, stack);
+    }
     // Item.BASE_ATTACK_*_UUID is protected in 1.20.1, so the vanilla values are repeated here.
     private static final UUID ATTACK_DAMAGE_MODIFIER = UUID.fromString("CB3F55D3-645C-4F38-A497-9C13A33DB5CF");
     private static final UUID ATTACK_SPEED_MODIFIER = UUID.fromString("FA233E1C-4180-4865-B01B-BCCE9785ACA3");
@@ -127,9 +135,13 @@ public final class AttributeTooltipHandler {
                 }))
             .then(Commands.literal("debug")
                 .executes(context -> {
+                    LocalPlayer player = Minecraft.getInstance().player;
+                    if (player == null) return 0;
+                    String held = player.getMainHandItem().getHoverName().getString();
                     int lines = dumpTooltip();
                     context.getSource().sendSuccess(
-                        () -> Component.literal("Attribute Display Style: dumped " + lines + " tooltip lines to the log"),
+                        () -> Component.literal("Attribute Display Style: dumped " + lines + " tooltip lines of '"
+                            + held + "' to the log; hover that exact item to record the render stages"),
                         false);
                     return lines;
                 })));
@@ -143,12 +155,16 @@ public final class AttributeTooltipHandler {
         List<Component> lines = stack.getTooltipLines(player, TooltipFlag.NORMAL);
         dump("event", stack, lines);
         debugDumps = 5;
+        debugBefore = 1;
+        debugProbe = 2;
+        debugTarget = stack.copy();
         return lines.size();
     }
 
     private static void dump(String stage, ItemStack stack, List<Component> lines) {
         System.out.println("[attribute_display_style] " + stage + " tooltip of '" + stack.getHoverName().getString()
-            + "' (" + lines.size() + " lines)");
+            + "' id=" + itemId(stack) + " tag=" + (stack.getTag() == null ? "-" : stack.getTag())
+            + " (" + lines.size() + " lines)");
         for (int index = 0; index < lines.size(); index++) {
             Component line = lines.get(index);
             TooltipCompat.Entry entry = TooltipCompat.parseLine(line);
@@ -260,14 +276,17 @@ public final class AttributeTooltipHandler {
         }
         if (lines.isEmpty()) return;
 
-        if (debugDumps > 0) {
+        if (debugDumps > 0 && debugTargetMatches(event.getItemStack())) {
             debugDumps--;
             dump("gather", event.getItemStack(), lines);
         }
 
         List<Component> before = new ArrayList<>(lines);
         TooltipCompat.styleSections(lines, TooltipFlag.NORMAL);
-        TooltipCompat.styleLooseLines(lines, TooltipFlag.NORMAL, coveredAttributes(event.getItemStack()));
+        // Nothing is dropped here: which lines this mod already covers was decided while the tooltip was
+        // built, and an attribute the item carries but this mod renders no line for (Confluence's computed
+        // base values, for instance) keeps the line the other mod wrote.
+        TooltipCompat.styleLooseLines(lines, TooltipFlag.NORMAL, Set.of());
         if (sameInstances(before, lines)) return;
 
         int first = positions.get(0);
@@ -293,6 +312,20 @@ public final class AttributeTooltipHandler {
         }
     }
 
+    /** Dumps the tooltip elements before any other {@code GatherComponents} listener touches them. */
+    public static final class GatherProbe {
+        @SubscribeEvent(priority = EventPriority.HIGHEST)
+        public void onGatherHead(RenderTooltipEvent.GatherComponents event) {
+            if (debugProbe <= 0 || !debugTargetMatches(event.getItemStack())) return;
+            debugProbe--;
+            List<Component> texts = new ArrayList<>();
+            for (Either<FormattedText, TooltipComponent> element : event.getTooltipElements()) {
+                if (element.left().orElse(null) instanceof Component component) texts.add(component);
+            }
+            dump("gather-head", event.getItemStack(), texts);
+        }
+    }
+
     /** Recolors the first text element in place; tooltip components and the rest of the list stay untouched. */
     private static void recolorFirstText(List<Either<FormattedText, TooltipComponent>> elements, int color) {
         for (int index = 0; index < elements.size(); index++) {
@@ -303,20 +336,6 @@ public final class AttributeTooltipHandler {
         }
     }
 
-    private static Set<String> coveredAttributes(ItemStack stack) {
-        Set<String> covered = new HashSet<>();
-        for (EquipmentSlot slot : EquipmentSlot.values()) {
-            for (Attribute attribute : stack.getAttributeModifiers(slot).keySet()) {
-                covered.add(attribute.getDescriptionId());
-                try {
-                    covered.add(Component.translatable(attribute.getDescriptionId()).getString());
-                } catch (Exception | LinkageError ignored) {
-                    // No language loaded yet; the description id is enough then.
-                }
-            }
-        }
-        return covered;
-    }
 
     private static boolean sameInstances(List<Component> before, List<Component> after) {
         if (before.size() != after.size()) return false;
@@ -329,6 +348,11 @@ public final class AttributeTooltipHandler {
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onTooltip(ItemTooltipEvent event) {
         List<Component> tooltip = event.getToolTip();
+        // One-shot diagnostic: what every other handler has contributed before this one touches the list.
+        if (debugBefore > 0 && debugTargetMatches(event.getItemStack())) {
+            debugBefore--;
+            dump("before", event.getItemStack(), tooltip);
+        }
         // Neutralize Apothic Attributes if it is present: drop its markers so its handler no-ops,
         // then take over the attribute section ourselves.
         stripForeignMarkers(tooltip);
@@ -345,13 +369,13 @@ public final class AttributeTooltipHandler {
                 return;
             }
 
-            // Lines another mod contributed are folded into this section, and lines describing an
-            // attribute that this mod renders itself are dropped so nothing is listed twice.
+            // Lines another mod contributed are folded into this section. Which of them are duplicates is
+            // decided below, after this mod has actually written its own lines: an attribute the item
+            // carries but this mod renders no line for keeps the other mod's line instead of losing both.
             boolean styleOthers = config.styleOtherModAttributeTooltips;
             List<TooltipCompat.Entry> foreign = new ArrayList<>();
             List<Component> preserved = new ArrayList<>();
             if (styleOthers) {
-                Set<String> covered = coveredAttributes(event.getItemStack());
                 // Some mods put their attribute lines above the vanilla section; move those into it.
                 for (int index = start - 1; index >= 0; index--) {
                     TooltipCompat.Entry entry = TooltipCompat.parseLine(tooltip.get(index));
@@ -359,13 +383,18 @@ public final class AttributeTooltipHandler {
                     tooltip.remove(index);
                     start--;
                     end--;
-                    if (!TooltipCompat.isCovered(entry, covered)) foreign.add(entry);
+                    foreign.add(entry);
                 }
-                int foreignIndex = foreignStart(tooltip, start + 1, end);
-                for (TooltipCompat.Entry entry : TooltipCompat.parse(tooltip, foreignIndex, end)) {
-                    if (!TooltipCompat.isCovered(entry, covered)) foreign.add(entry);
+                // Every line between the markers is re-parsed, not just the ones marked as foreign: mods
+                // such as Confluence write attribute lines here whose values live in their own item data
+                // and cannot be rebuilt from the stack's modifiers, and those must survive the rebuild.
+                int regionStart = start + 1;
+                foreign.addAll(TooltipCompat.parse(tooltip, regionStart, end));
+                // Spacing and the vanilla section headers are written again by the rebuild, so only the
+                // lines this mod does not reproduce are carried over.
+                for (Component line : TooltipCompat.unparsed(tooltip, regionStart, end)) {
+                    if (!isEmpty(line) && !hasTranslatable(line, "item.modifiers.")) preserved.add(line);
                 }
-                preserved.addAll(TooltipCompat.unparsed(tooltip, foreignIndex, end));
             } else {
                 preserved.addAll(tooltip.subList(foreignStart(tooltip, start + 1, end), end));
             }
@@ -375,7 +404,14 @@ public final class AttributeTooltipHandler {
             List<Component> replacement = new ArrayList<>();
             if (shouldShowInTooltip(event.getItemStack(), TooltipPart.MODIFIERS)) {
                 Set<String> rendered = new HashSet<>();
-                addModifiers(event.getItemStack(), event.getEntity(), event.getFlags(), foreign, replacement, rendered);
+                addModifiers(event.getItemStack(), event.getEntity(), event.getFlags(), List.of(), replacement, rendered);
+                if (styleOthers) {
+                    List<TooltipCompat.Entry> kept = new ArrayList<>();
+                    for (TooltipCompat.Entry entry : foreign) {
+                        if (!TooltipCompat.isCovered(entry, rendered)) kept.add(entry);
+                    }
+                    TooltipCompat.renderEntries(kept, replacement, event.getFlags());
+                }
                 replacement.addAll(preserved);
                 RENDERED_GROUPS.put(tooltip, new RenderedSection(rendered,
                     replacement.isEmpty() ? null : replacement.get(0),

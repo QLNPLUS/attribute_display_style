@@ -337,31 +337,44 @@ final class TooltipCompat {
 
     /**
      * Resolves the registry id behind a rendered attribute name so the {@code addition_as_percentage_attributes}
-     * rule applies to these lines too. Falls back to the "attribute.&lt;namespace&gt;.&lt;path&gt;" naming
-     * convention modded attributes commonly use when the registry is not reachable.
+     * rule applies to these lines too. The translation key is tried first, then the text the name resolves
+     * to, because mods render the same attribute under their own key. Falls back to the
+     * "attribute.&lt;namespace&gt;.&lt;path&gt;" naming convention when the registry is not reachable.
      */
     private static String attributeId(Component name) {
-        if (!(name.getContents() instanceof TranslatableContents contents)) return null;
-        String key = contents.getKey();
-        String cached = ATTRIBUTE_IDS.get(key);
+        String key = name.getContents() instanceof TranslatableContents contents ? contents.getKey() : "";
+        String text = nameText(name);
+        String cacheKey = key.isEmpty() ? "text:" + text : key;
+        String cached = ATTRIBUTE_IDS.get(cacheKey);
         if (cached != null) return cached.isEmpty() ? null : cached;
-        String resolved = lookupAttributeId(key);
-        ATTRIBUTE_IDS.put(key, resolved == null ? "" : resolved);
+        String resolved = lookupAttributeId(key, text);
+        ATTRIBUTE_IDS.put(cacheKey, resolved == null ? "" : resolved);
         return resolved;
     }
 
-    private static String lookupAttributeId(String descriptionId) {
+    private static String lookupAttributeId(String descriptionId, String text) {
         try {
             for (Attribute attribute : ForgeRegistries.ATTRIBUTES.getValues()) {
-                if (descriptionId.equals(attribute.getDescriptionId())) {
-                    ResourceLocation id = ForgeRegistries.ATTRIBUTES.getKey(attribute);
-                    if (id != null) return id.toString();
-                }
+                String id = descriptionId.isEmpty() ? null : byDescription(attribute, descriptionId);
+                if (id == null && !text.isEmpty()) id = byText(attribute, text);
+                if (id != null) return id;
             }
         } catch (Exception | LinkageError ignored) {
             // Registry not available in this context; the naming convention below still covers modded attributes.
         }
-        return conventionAttributeId(descriptionId);
+        return descriptionId.isEmpty() ? null : conventionAttributeId(descriptionId);
+    }
+
+    private static String byDescription(Attribute attribute, String descriptionId) {
+        if (!descriptionId.equals(attribute.getDescriptionId())) return null;
+        ResourceLocation id = ForgeRegistries.ATTRIBUTES.getKey(attribute);
+        return id == null ? null : id.toString();
+    }
+
+    private static String byText(Attribute attribute, String text) {
+        if (!text.equals(Component.translatable(attribute.getDescriptionId()).getString())) return null;
+        ResourceLocation id = ForgeRegistries.ATTRIBUTES.getKey(attribute);
+        return id == null ? null : id.toString();
     }
 
     private static String conventionAttributeId(String descriptionId) {
