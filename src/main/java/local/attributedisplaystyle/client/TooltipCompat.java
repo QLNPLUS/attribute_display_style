@@ -354,15 +354,26 @@ final class TooltipCompat {
 
     private static String lookupAttributeId(String descriptionId, String text) {
         try {
+            String firstMatch = null;
             for (Attribute attribute : ForgeRegistries.ATTRIBUTES.getValues()) {
                 String id = descriptionId.isEmpty() ? null : byDescription(attribute, descriptionId);
                 if (id == null && !text.isEmpty()) id = byText(attribute, text);
-                if (id != null) return id;
+                if (id == null) continue;
+                // Several attributes can share one display name (Confluence renders its critical chance
+                // under the vanilla key). The one the config has a multiplier for is the one meant here.
+                if (DisplayConfig.get().attributeDisplayMultiplier(id) != 1D) return id;
+                if (firstMatch == null) firstMatch = id;
             }
+            if (firstMatch != null) return firstMatch;
         } catch (Exception | LinkageError ignored) {
             // Registry not available in this context; the naming convention below still covers modded attributes.
         }
         return descriptionId.isEmpty() ? null : conventionAttributeId(descriptionId);
+    }
+
+    /** Drops the resolved ids so a config change is picked up on the next tooltip. */
+    static void clearAttributeCache() {
+        ATTRIBUTE_IDS.clear();
     }
 
     private static String byDescription(Attribute attribute, String descriptionId) {

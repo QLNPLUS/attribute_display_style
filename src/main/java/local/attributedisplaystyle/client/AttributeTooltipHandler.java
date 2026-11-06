@@ -75,12 +75,14 @@ public final class AttributeTooltipHandler {
 
     public AttributeTooltipHandler() {
         DisplayConfig.load();
+        TooltipCompat.clearAttributeCache();
     }
 
     public static final class ModBusEvents {
         @SubscribeEvent
         public static void reload(RegisterClientReloadListenersEvent event) {
             DisplayConfig.load();
+            TooltipCompat.clearAttributeCache();
         }
     }
 
@@ -129,6 +131,7 @@ public final class AttributeTooltipHandler {
             .then(Commands.literal("reload")
                 .executes(context -> {
                     DisplayConfig.load();
+                    TooltipCompat.clearAttributeCache();
                     context.getSource().sendSuccess(
                         () -> Component.translatable("attribute_display_style.command.reload.success"), false);
                     return 1;
@@ -772,6 +775,12 @@ public final class AttributeTooltipHandler {
 
     static MutableComponent formatLine(Operation operation, double amount, boolean percentage, Component name, String attributeId, TooltipFlag flag, DisplayConfig.Style appearance) {
         double scaledAmount = amount * DisplayConfig.get().attributeDisplayMultiplier(attributeId);
+        if (debugDumps > 0) {
+            System.out.println("[attribute_display_style]   render id=" + attributeId
+                + " amount=" + amount + " percentage=" + percentage
+                + " multiplier=" + DisplayConfig.get().attributeDisplayMultiplier(attributeId)
+                + " shown=" + scaledAmount + (percentage ? "%" : ""));
+        }
         double displayAmount = Double.isFinite(scaledAmount) ? scaledAmount : amount;
         String sign = displayAmount >= 0 ? "+" : "-";
         String value = NUMBER.format(Math.abs(displayAmount));
