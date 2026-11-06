@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.2
+
+- Attribute lines written by other mods that this mod cannot rebuild from the item's own modifiers are now kept instead of being dropped, so Confluence's computed base values and its summon modifiers (`作用于召唤物时`) show up again.
+- Display multipliers now resolve the attribute by the name a line renders to, so mods that render an attribute under their own key still pick up the configured factor.
+- `/attribute_display_style debug` now follows the item it was run on and records the tooltip at each stage, so hovering a different item no longer pollutes the log.
+
 ## 1.4.1
 
 - Fixed `item_name_colors` losing to mods that recolor the finished title while the tooltip is assembled into render components, such as Confluence's rarity remapping. The name is now recolored once more at that stage, so the configured color is the one that shows. No config change is needed.
