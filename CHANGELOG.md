@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.0
+
+- Added `rewrite_confluence_tooltip_lines` (default on), which rewrites Confluence's computed weapon values into this mod's own attribute lines: a line Confluence prints as `击退：0.05` becomes an ordinary attribute line, so it uses the configured icons, colors and `attribute_display_multipliers` like every other line. A computed value of zero drops the line instead of showing it. Other Confluence tooltip text is left alone.
+
 ## 1.4.2
 
 - Attribute lines written by other mods that this mod cannot rebuild from the item's own modifiers are now kept instead of being dropped, so Confluence's computed base values and its summon modifiers (`作用于召唤物时`) show up again.
