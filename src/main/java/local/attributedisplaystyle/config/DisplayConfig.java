@@ -83,6 +83,8 @@ public final class DisplayConfig {
     public boolean expandOnShift = true;
     public boolean replaceVanillaAttributeTooltips = true;
     public boolean styleOtherModAttributeTooltips = true;
+    /** Rewrites Confluence's computed weapon values into this mod's attribute lines. */
+    public boolean rewriteConfluenceTooltipLines = true;
     public EmptyLineMode emptyTooltipLines = EmptyLineMode.KEEP;
 
     public Style positiveSingle = new Style("", "\uDB80\uDC15", 0x55FF55, 0xFFFFFF, 0x777777, 0xFFFFFF, 0x777777);
@@ -127,6 +129,8 @@ public final class DisplayConfig {
         value.replaceVanillaAttributeTooltips = bool(json, "replace_vanilla_attribute_tooltips", value.replaceVanillaAttributeTooltips);
         value.styleOtherModAttributeTooltips = bool(json, "style_curio_attribute_tooltips",
             bool(json, "style_other_mod_attribute_tooltips", value.styleOtherModAttributeTooltips));
+        value.rewriteConfluenceTooltipLines = bool(json, "rewrite_confluence_tooltip_lines",
+            value.rewriteConfluenceTooltipLines);
         value.emptyTooltipLines = emptyLineMode(json, "empty_tooltip_lines", value.emptyTooltipLines);
 
         if (json.has("positive_single") || json.has("negative_single")) {
@@ -281,6 +285,7 @@ public final class DisplayConfig {
         json.addProperty("expand_on_shift", value.expandOnShift);
         json.addProperty("replace_vanilla_attribute_tooltips", value.replaceVanillaAttributeTooltips);
         json.addProperty("style_curio_attribute_tooltips", value.styleOtherModAttributeTooltips);
+        json.addProperty("rewrite_confluence_tooltip_lines", value.rewriteConfluenceTooltipLines);
         json.addProperty("empty_tooltip_lines", value.emptyTooltipLines.name().toLowerCase(Locale.ROOT));
         putStyle(json, "positive_single", value.positiveSingle);
         putStyle(json, "negative_single", value.negativeSingle);

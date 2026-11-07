@@ -62,11 +62,11 @@ public final class AttributeTooltipHandler {
     private static int debugDumps = 0;
     private static int debugBefore = 0;
     private static int debugProbe = 0;
-    /** The stack the debug command was run on; dumps only fire for that same item. */
-    private static ItemStack debugTarget = ItemStack.EMPTY;
+    /** The stack the debug command was run on, or null when no dump is armed. */
+    private static ItemStack debugTarget;
 
     private static boolean debugTargetMatches(ItemStack stack) {
-        return stack != null && !debugTarget.isEmpty() && ItemStack.isSameItemSameTags(debugTarget, stack);
+        return stack != null && debugTarget != null && ItemStack.isSameItemSameTags(debugTarget, stack);
     }
     // Item.BASE_ATTACK_*_UUID is protected in 1.20.1, so the vanilla values are repeated here.
     private static final UUID ATTACK_DAMAGE_MODIFIER = UUID.fromString("CB3F55D3-645C-4F38-A497-9C13A33DB5CF");

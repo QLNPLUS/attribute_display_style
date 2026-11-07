@@ -47,6 +47,7 @@ All six objects have the same seven fields:
 - attribute_display_multipliers: an object mapping attribute registry IDs to positive, finite display multipliers. The multiplier applies to the displayed number after existing percentage conversion, without changing gameplay values; values below 1 are supported. For a non-percentage modifier, a multiplier of 100 turns 0.05 into 5; 0.01 turns a displayed 1000 into 10. If the existing rules format a value as a percentage, the multiplier scales its numeric part and keeps the `%` suffix. Existing `#.##` formatting is retained, so results below about 0.005 may round to 0.
 - show_unchanged_modifiers, expand_on_shift, replace_vanilla_attribute_tooltips: behavior switches.
 - style_other_mod_attribute_tooltips: restyle and merge the attribute lists other mods add, default true. Covers the Curios slot lists and the Confluence item prefixes; set to false to leave them exactly as those mods render them.
+- rewrite_confluence_tooltip_lines: rewrite Confluence's computed weapon values into this mod's own attribute lines, default true. Confluence prints those values as plain text such as `击退：0.05`; with this on they become an ordinary attribute line, so they follow the icon, colors and `attribute_display_multipliers` like any other line. A value of zero drops the line instead of showing it. Set to false to leave those lines exactly as Confluence writes them.
 - empty_tooltip_lines: what to do with tooltip lines that carry no text at all, default keep. The rule looks only at the line itself, never at which mod wrote it, and it measures the whole line - a line assembled from parts, such as a renamed item's name or one of this mod's own attribute lines, counts by the text it renders in full and is never mistaken for a blank one.
   - keep: nothing is removed, which is how the mod behaved before this option existed.
   - collapse: a run of consecutive text-less lines becomes a single one, and ones at the very start or end of the tooltip are dropped.
@@ -93,6 +94,8 @@ Confluence 1.2.8 会在自己的属性段上方、以及标题与数值之间各
 `item_name_colors` 按物品注册 ID 覆盖物品名颜色，默认为空。着色发生在提示框内容全部生成之后，并在提示框被装配成渲染组件时再补一次，因此会盖过稀有度给的名字颜色，也盖过其他 mod 在任一阶段对这一行做的着色。键可以写单个物品 `minecraft:elytra`、某个 mod 的全部物品 `examplemod:*`，或用 `*` 表示所有物品，匹配到的键里最具体的那个生效；省略命名空间时按 `minecraft` 处理。颜色支持 `#rrggbb`、`0xrrggbb` 和 `rrggbb` 三种写法，其它颜色配置项同样支持。颜色会作用到名字的所有片段，所以别的 mod 分段上的颜色也会被统一成你设的颜色，加粗、斜体和字体保持不变。只有物品名这一行会变，提示框其余内容不受影响。
 
 A config written by an earlier version is migrated automatically: the previous flat color, icon, `*_parts` and nested_prefix keys are folded into the six types the next time the file is read, so nothing is lost.
+
+`rewrite_confluence_tooltip_lines` 把 Confluence 计算出来的武器数值（例如它会写成纯文本的 `击退：0.05`）改写成这个 mod 自己的属性行，默认开启。开启后这类行会像其它属性行一样套用图标、配色和 `attribute_display_multipliers`；数值为 0 时该行直接不显示。设为 `false` 则完全保留 Confluence 原本的写法。
 
 ## Weapon totals
 

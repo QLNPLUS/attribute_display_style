@@ -39,6 +39,10 @@ final class TooltipCompat {
     private static final String VALUE_PREFIX = "attribute.modifier.";
     private static final String PORTLIB_PREFIX = "portlib.modifier.";
     private static final String CONFLUENCE_PREFIX = "prefix.confluence.tooltip.";
+    private static final String CONFLUENCE_TOOLTIP_PREFIX = "tooltip.confluence.";
+    /** Confluence tooltip keys that describe an attribute this mod can render itself. */
+    private static final Map<String, String> CONFLUENCE_TOOLTIP_ATTRIBUTES = Map.of(
+        "tooltip.confluence.knockback", "attribute.name.generic.attack_knockback");
     private static final String PLUS = "plus";
     private static final String TAKE = "take";
     private static final String EQUALS = "equals";
@@ -168,9 +172,15 @@ final class TooltipCompat {
     }
 
     private static void renderRun(List<Entry> run, List<Component> output, TooltipFlag flag) {
+        List<Entry> visible = new ArrayList<>(run.size());
+        for (Entry entry : run) {
+            // A computed value of zero carries no information, so the line is dropped instead of shown.
+            if (entry.hideWhenZero() && entry.amount() == 0D) continue;
+            visible.add(entry);
+        }
         List<List<Entry>> groups = new ArrayList<>();
         Map<String, List<Entry>> byKey = new LinkedHashMap<>();
-        for (Entry entry : run) {
+        for (Entry entry : visible) {
             String key = entry.groupKey();
             List<Entry> group;
             if (key == null) {
@@ -217,7 +227,29 @@ final class TooltipCompat {
         if (contents != null) return parsePortlib(contents);
         contents = translatable(line, CONFLUENCE_PREFIX);
         if (contents != null) return parseConfluence(contents);
+        contents = translatable(line, CONFLUENCE_TOOLTIP_PREFIX);
+        if (contents != null) return parseConfluenceTooltip(contents);
         return null;
+    }
+
+    /**
+     * Confluence prints a few computed weapon values as {@code tooltip.confluence.<name>} with the value as
+     * the only argument. The ones that describe an attribute are rewritten into this mod's own line and are
+     * hidden when the value is zero, because a zero value says nothing.
+     */
+    private static Entry parseConfluenceTooltip(TranslatableContents contents) {
+        if (!DisplayConfig.get().rewriteConfluenceTooltipLines) return null;
+
+        String attributeKey = CONFLUENCE_TOOLTIP_ATTRIBUTES.get(contents.getKey());
+        if (attributeKey == null) return null;
+
+        Object[] args = contents.getArgs();
+        if (args.length < 1) return null;
+        double amount = number(args[0]);
+        if (Double.isNaN(amount)) return null;
+
+        return new Entry(Operation.ADDITION, amount, false, Component.translatable(attributeKey),
+            attributeKey, false, true);
     }
 
     /**
@@ -393,7 +425,12 @@ final class TooltipCompat {
     }
 
     /** One parsed line: {@code amount} is already in display units and signed. */
-    record Entry(Operation operation, double amount, boolean percentage, Component name, String nameKey, boolean equalsLine) {
+    record Entry(Operation operation, double amount, boolean percentage, Component name, String nameKey, boolean equalsLine,
+                 boolean hideWhenZero) {
+        Entry(Operation operation, double amount, boolean percentage, Component name, String nameKey, boolean equalsLine) {
+            this(operation, amount, percentage, name, nameKey, equalsLine, false);
+        }
+
         String groupKey() {
             if (equalsLine) return null;
             return nameKey + '|' + operation.name() + '|' + percentage;
